@@ -1,0 +1,107 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'ashva-experts'
+    environment: 'production'
+
+scrape_configs:
+  # Gateway Service
+  - job_name: 'gateway-service'
+    static_configs:
+      - targets: ['gateway-service:8000']
+    metrics_path: '/metrics'
+
+  # Auth Service
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['auth-service:8000']
+    metrics_path: '/metrics'
+
+  # Lead Service
+  - job_name: 'lead-service'
+    static_configs:
+      - targets: ['lead-service:8000']
+    metrics_path: '/metrics'
+
+  # Content Service
+  - job_name: 'content-service'
+    static_configs:
+      - targets: ['content-service:8000']
+    metrics_path: '/metrics'
+
+  # Subscriber Service
+  - job_name: 'subscriber-service'
+    static_configs:
+      - targets: ['subscriber-service:8000']
+    metrics_path: '/metrics'
+
+  # Plan Service
+  - job_name: 'plan-service'
+    static_configs:
+      - targets: ['plan-service:8000']
+    metrics_path: '/metrics'
+
+  # Subscription Service
+  - job_name: 'subscription-service'
+    static_configs:
+      - targets: ['subscription-service:8000']
+    metrics_path: '/metrics'
+
+  # Billing Service
+  - job_name: 'billing-service'
+    static_configs:
+      - targets: ['billing-service:8000']
+    metrics_path: '/metrics'
+
+  # Payment Service
+  - job_name: 'payment-service'
+    static_configs:
+      - targets: ['payment-service:8000']
+    metrics_path: '/metrics'
+
+  # Ticket Service
+  - job_name: 'ticket-service'
+    static_configs:
+      - targets: ['ticket-service:8000']
+    metrics_path: '/metrics'
+
+  # Assignment Service
+  - job_name: 'assignment-service'
+    static_configs:
+      - targets: ['assignment-service:8000']
+    metrics_path: '/metrics'
+
+  # Media Service
+  - job_name: 'media-service'
+    static_configs:
+      - targets: ['media-service:8000']
+    metrics_path: '/metrics'
+
+  # Notification Service
+  - job_name: 'notification-service'
+    static_configs:
+      - targets: ['notification-service:8000']
+    metrics_path: '/metrics'
+
+  # Reporting Service
+  - job_name: 'reporting-service'
+    static_configs:
+      - targets: ['reporting-service:8000']
+    metrics_path: '/metrics'
+
+  # Audit Service
+  - job_name: 'audit-service'
+    static_configs:
+      - targets: ['audit-service:8000']
+    metrics_path: '/metrics'
+
+  # PostgreSQL
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  # Redis
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']

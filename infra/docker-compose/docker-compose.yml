@@ -1,0 +1,107 @@
+version: '3.8'
+
+services:
+  # Infrastructure
+  postgres:
+    image: postgres:14-alpine
+    container_name: ashva-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ashva}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ashva123}
+      POSTGRES_DB: ${POSTGRES_DB:-ashva_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../db-migrations/init-schemas.sql:/docker-entrypoint-initdb.d/init-schemas.sql
+    networks:
+      - ashva-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ashva}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ashva-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - ashva-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: ashva-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - ashva-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Microservices
+  gateway-service:
+    build:
+      context: ../../services/gateway-service
+      dockerfile: Dockerfile
+    container_name: gateway-service
+    environment:
+      - GATEWAY_PORT=8000
+      - AUTH_SERVICE_URL=http://auth-service:8000
+      - LEAD_SERVICE_URL=http://lead-service:8000
+      - CONTENT_SERVICE_URL=http://content-service:8000
+      - SUBSCRIBER_SERVICE_URL=http://subscriber-service:8000
+      - PLAN_SERVICE_URL=http://plan-service:8000
+      - SUBSCRIPTION_SERVICE_URL=http://subscription-service:8000
+      - BILLING_SERVICE_URL=http://billing-service:8000
+      - PAYMENT_SERVICE_URL=http://payment-service:8000
+      - TICKET_SERVICE_URL=http://ticket-service:8000
+      - ASSIGNMENT_SERVICE_URL=http://assignment-service:8000
+      - MEDIA_SERVICE_URL=http://media-service:8000
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8000
+      - REPORTING_SERVICE_URL=http://reporting-service:8000
+      - AUDIT_SERVICE_URL=http://audit-service:8000
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    ports:
+      - "8000:8000"
+    networks:
+      - ashva-network
+    depends_on:
+      - postgres
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Add other services similarly...
+  # Note: In production, each service should be built and deployed separately
+
+networks:
+  ashva-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
