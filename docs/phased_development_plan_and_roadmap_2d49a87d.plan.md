@@ -4,30 +4,30 @@ overview: Create a comprehensive phased development plan covering all functional
 todos:
   - id: phase1-foundation
     content: "Complete Phase 1: Foundation & Infrastructure Setup - Infrastructure, core services, observability, development tools"
-    status: pending
+    status: completed
   - id: phase2-auth
     content: "Complete Phase 2: Authentication & User Management - Auth service, subscriber service, gateway integration"
-    status: pending
+    status: completed
     dependencies:
       - phase1-foundation
   - id: phase3-website-cms
     content: "Complete Phase 3: Public Website & CMS - Lead service, content service, public website, CMS app"
-    status: pending
+    status: in_progress
     dependencies:
       - phase2-auth
   - id: phase4-subscriptions
     content: "Complete Phase 4: Plans & Subscriptions - Plan service, subscription service, admin UI"
-    status: pending
+    status: in_progress
     dependencies:
       - phase2-auth
   - id: phase5-billing-payments
     content: "Complete Phase 5: Billing & Payments - Billing service, payment service, Cashfree integration, invoice PDFs"
-    status: pending
+    status: in_progress
     dependencies:
       - phase4-subscriptions
   - id: phase6-ticketing
     content: "Complete Phase 6: Ticketing & Field Operations - Ticket service, assignment service, admin UI"
-    status: pending
+    status: in_progress
     dependencies:
       - phase2-auth
       - phase5-billing-payments
@@ -80,19 +80,20 @@ This document outlines the complete phased development plan for the Ashva Expert
 
 - Set up development environment and infrastructure
 - Establish core services foundation
-- Configure observability and monitoring
+- Defer full observability to later phase while keeping health endpoints
 
 #### Tasks
 
 **1.1 Infrastructure Setup**
 
 - [ ] Set up PostgreSQL database cluster with schema-per-service
-- [ ] Configure Redis for caching, rate limiting, and message broker
+- [ ] Configure Redis for caching, rate limiting, and message broker (Redis Streams)
 - [ ] Set up MinIO for object storage
 - [ ] Configure Docker Compose for local development
 - [ ] Set up Nginx reverse proxy configuration
 - [ ] Create database migration framework (Alembic)
-- [ ] Set up CI/CD pipeline basics
+- [ ] Add note to rotate default credentials before production deployment
+- [ ] Defer CI/CD pipeline basics to later phase
 
 **1.2 Core Services Foundation**
 
@@ -104,9 +105,7 @@ This document outlines the complete phased development plan for the Ashva Expert
 
 **1.3 Observability Foundation**
 
-- [ ] Set up Prometheus for metrics collection
-- [ ] Configure Grafana dashboards
-- [ ] Set up Loki for log aggregation
+- [ ] Defer Prometheus/Grafana/Loki setup to later phase
 - [ ] Implement structured logging (JSON format)
 - [ ] Create basic health check endpoints for all services
 
@@ -303,27 +302,28 @@ This document outlines the complete phased development plan for the Ashva Expert
 
 **4.1 Plan Service Implementation**
 
-- [ ] Implement plan CRUD operations
-- [ ] Implement plan components (features, limits, pricing)
-- [ ] Implement plan activation/deactivation
+- [x] Implement plan CRUD operations
+- [x] Implement plan components (features, limits, pricing)
+- [x] Implement plan activation/deactivation
 - [ ] Implement plan sorting and featured plans
-- [ ] Implement public plan listing endpoint
-- [ ] Implement plan detail endpoint
+- [x] Implement public plan listing endpoint
+- [x] Implement plan detail endpoint
 - [ ] Implement plan caching
 - [ ] Emit PlanUpdated events
 
 **4.2 Subscription Service Implementation**
 
-- [ ] Implement subscription creation
+- [x] Implement subscription creation
 - [ ] Implement billing cycle selection (user-selectable months)
-- [ ] Implement subscription status management (active, paused, cancelled, expired)
+- [x] Implement subscription status management (active, paused, cancelled, expired)
 - [ ] Implement plan change (upgrade/downgrade)
 - [ ] Implement subscription pause/resume
 - [ ] Implement cancellation request (with one-month notice enforcement)
-- [ ] Implement subscription renewal logic
+- [x] Implement subscription renewal logic
 - [ ] Implement subscription event history
 - [ ] Handle plan changes and trigger proration events
 - [ ] Emit SubscriptionCreated, SubscriptionChanged, SubscriptionPaused, SubscriptionCancelled events
+  - Note: purchase/renew order flow implemented with GST slabs + coupon stacking + payment intent stub.
 
 **4.3 Admin Portal - Plans & Subscriptions**
 
@@ -374,13 +374,13 @@ This document outlines the complete phased development plan for the Ashva Expert
 
 **5.1 Billing Service Implementation**
 
-- [ ] Implement invoice generation
+- [x] Implement invoice generation
 - [ ] Implement proration calculation engine
   - [ ] Daily proration logic
   - [ ] Plan change proration
   - [ ] Mid-cycle start proration
   - [ ] Pause period proration
-- [ ] Implement GST calculation (18%)
+- [x] Implement GST calculation (from order amounts/slabs)
 - [ ] Implement invoice numbering (FY26-27-INV-000001 format)
 - [ ] Implement invoice sequence management
 - [ ] Implement credit ledger for advance payments
@@ -394,8 +394,9 @@ This document outlines the complete phased development plan for the Ashva Expert
 **5.2 Payment Service Implementation**
 
 - [ ] Integrate Cashfree SDK
-- [ ] Implement payment order creation
-- [ ] Implement payment status tracking
+- [x] Implement payment order creation (payment intents)
+- [x] Implement payment status tracking
+- [x] Implement admin-configurable payment gateway settings (Cashfree/Razorpay/mock)
 - [ ] Implement Cashfree webhook handler
   - [ ] Webhook signature validation
   - [ ] Idempotency enforcement
@@ -480,15 +481,15 @@ This document outlines the complete phased development plan for the Ashva Expert
 
 **6.1 Ticket Service Implementation**
 
-- [ ] Implement ticket creation (installation, service, repair)
+- [x] Implement ticket creation (installation, service, repair)
 - [ ] Implement ticket status workflow (created → assigned → in_progress → completed → closed)
-- [ ] Implement priority management (low, medium, high, urgent)
+- [x] Implement priority management (low, medium, high, urgent)
 - [ ] Implement SLA configuration per ticket type and priority
 - [ ] Implement SLA timer calculation
 - [ ] Implement SLA breach detection
 - [ ] Implement ticket status history
 - [ ] Implement completion notes storage
-- [ ] Implement ticket search and filtering
+- [x] Implement ticket search and filtering (basic)
 - [ ] Emit TicketCreated, TicketStatusChanged, SLABreached events
 - [ ] Handle JobAssigned events
 

@@ -13,6 +13,9 @@ CREATE SCHEMA IF NOT EXISTS content;
 -- Subscriber Service Schema
 CREATE SCHEMA IF NOT EXISTS subscriber;
 
+-- Coupon Service Schema
+CREATE SCHEMA IF NOT EXISTS coupon;
+
 -- Plan Service Schema
 CREATE SCHEMA IF NOT EXISTS plan;
 

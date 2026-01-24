@@ -1,0 +1,1 @@
+"""Coupon service app package."""

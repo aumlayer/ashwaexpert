@@ -1,0 +1,1887 @@
+openapi: 3.0.3
+info:
+  title: Ashva Experts API (Consolidated)
+  version: 0.2.0
+  description: |
+    Consolidated API specification for manual testing during development.
+
+    Notes:
+    - Base URL for local testing via Nginx: `http://localhost:8080`
+    - All `/api/v1/*` routes are served through the gateway.
+    - Auth endpoints under `/api/v1/auth/*` are public.
+    - Non-auth endpoints require `Authorization: Bearer <access_token>`.
+servers:
+  - url: http://localhost:8080
+    description: Local via Nginx (recommended)
+  - url: http://localhost:8000
+    description: Local gateway direct
+tags:
+  - name: gateway
+  - name: auth
+  - name: subscribers
+  - name: leads
+  - name: content
+  - name: coupons
+  - name: plans
+  - name: subscriptions
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+      required: [detail]
+
+    RegisterRequest:
+      type: object
+      properties:
+        email: { type: string, format: email, example: user@example.com }
+        phone: { type: string, example: "+919876543210" }
+        password: { type: string, example: "SecurePassword123!" }
+        role:
+          type: string
+          enum: [admin, subscriber, technician, cms_user]
+          example: subscriber
+        first_name: { type: string, example: John }
+        last_name: { type: string, example: Doe }
+      required: [email, password, role]
+
+    RegisterResponse:
+      type: object
+      properties:
+        user_id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        message: { type: string }
+      required: [user_id, email, message]
+
+    OtpRequestRequest:
+      type: object
+      properties:
+        identifier:
+          type: string
+          description: Email or phone
+          example: user@example.com
+        purpose:
+          type: string
+          enum: [login, registration, password_reset]
+          example: login
+      required: [identifier, purpose]
+
+    OtpRequestResponse:
+      type: object
+      properties:
+        message: { type: string, example: OTP sent successfully }
+        expires_in_seconds: { type: integer, example: 300 }
+      required: [message, expires_in_seconds]
+
+    OtpVerifyRequest:
+      type: object
+      properties:
+        identifier: { type: string, example: user@example.com }
+        otp_code:
+          type: string
+          description: |
+            Local dev uses a static OTP (default `123456`).
+          example: "123456"
+        purpose:
+          type: string
+          enum: [login, registration, password_reset]
+          example: login
+      required: [identifier, otp_code, purpose]
+
+    TokenUser:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        role:
+          type: string
+          enum: [admin, subscriber, technician, cms_user]
+        subscriber_id: { type: string, format: uuid, nullable: true }
+        can_assign_leads: { type: boolean, example: false }
+        can_manage_unassigned_leads: { type: boolean, example: true }
+      required: [id, email, role]
+
+    TokenResponse:
+      type: object
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        token_type: { type: string, example: Bearer }
+        expires_in: { type: integer, example: 3600 }
+        user: { $ref: "#/components/schemas/TokenUser" }
+      required: [access_token, refresh_token, token_type, expires_in, user]
+
+    PasswordLoginRequest:
+      type: object
+      properties:
+        email: { type: string, format: email, example: user@example.com }
+        password: { type: string, example: "SecurePassword123!" }
+      required: [email, password]
+
+    RefreshRequest:
+      type: object
+      properties:
+        refresh_token: { type: string }
+      required: [refresh_token]
+
+    RefreshResponse:
+      type: object
+      properties:
+        access_token: { type: string }
+        expires_in: { type: integer, example: 3600 }
+        token_type: { type: string, example: Bearer }
+      required: [access_token, expires_in, token_type]
+
+    LogoutRequest:
+      type: object
+      properties:
+        refresh_token: { type: string }
+      required: [refresh_token]
+
+    ValidateRequest:
+      type: object
+      properties:
+        token: { type: string }
+      required: [token]
+
+    ValidateResponse:
+      type: object
+      properties:
+        valid: { type: boolean, example: true }
+        user_id: { type: string, format: uuid }
+        email: { type: string, format: email, example: user@example.com }
+        role:
+          type: string
+          enum: [admin, subscriber, technician, cms_user]
+        subscriber_id: { type: string, format: uuid, nullable: true }
+        can_assign_leads: { type: boolean, example: false }
+        can_manage_unassigned_leads: { type: boolean, example: true }
+        expires_at: { type: string, format: date-time }
+      required: [valid, user_id, email, role, expires_at]
+
+    MeResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        phone: { type: string, nullable: true }
+        role:
+          type: string
+          enum: [admin, subscriber, technician, cms_user]
+        subscriber_id: { type: string, format: uuid, nullable: true }
+        can_assign_leads: { type: boolean, example: false }
+        can_manage_unassigned_leads: { type: boolean, example: true }
+        is_active: { type: boolean }
+        is_verified: { type: boolean }
+      required: [id, email, role, is_active, is_verified]
+
+    SubscriberMeResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        first_name: { type: string }
+        last_name: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string, nullable: true }
+        company_name: { type: string, nullable: true }
+        gst_number: { type: string, nullable: true }
+        pan_number: { type: string, nullable: true }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      required: [id, user_id, first_name, last_name, email, is_active, created_at, updated_at]
+
+    SubscriberUpdateRequest:
+      type: object
+      properties:
+        first_name: { type: string }
+        last_name: { type: string }
+        phone: { type: string }
+        company_name: { type: string }
+        gst_number: { type: string }
+        pan_number: { type: string }
+
+    LeadCreateRequest:
+      type: object
+      properties:
+        name: { type: string, example: John Doe }
+        email: { type: string, format: email, example: john@example.com }
+        phone: { type: string, example: "+919876543210" }
+        company: { type: string, example: "Hotel ABC" }
+        customer_type:
+          type: string
+          enum: [commercial, pg, hotel, industry, residential, other]
+          example: hotel
+        service_category:
+          type: string
+          enum: [rental, service_request, amc]
+          example: service_request
+        state: { type: string, example: KA }
+        city: { type: string, example: Bengaluru }
+        locality: { type: string, example: HSR }
+        preferred_datetime: { type: string, format: date-time, example: "2026-01-25T10:00:00Z" }
+        appliance_category:
+          type: string
+          enum: [ac, fridge, washing_machine, ro, microwave, other]
+          example: ac
+        appliance_brand: { type: string, example: Daikin }
+        appliance_model: { type: string, example: FTKF }
+        urgency:
+          type: string
+          enum: [low, medium, high]
+          example: high
+        preferred_contact_method:
+          type: string
+          enum: [call, whatsapp, email]
+          example: whatsapp
+        message: { type: string, example: AC not cooling }
+        source:
+          type: string
+          enum: [website, referral, social, other, partner]
+          example: website
+      required: [name, email]
+
+    LeadResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string, nullable: true }
+        company: { type: string, nullable: true }
+        customer_type:
+          type: string
+          enum: [commercial, pg, hotel, industry, residential, other]
+          nullable: true
+        service_category:
+          type: string
+          enum: [rental, service_request, amc]
+          nullable: true
+        state: { type: string, nullable: true }
+        city: { type: string, nullable: true }
+        locality: { type: string, nullable: true }
+        preferred_datetime: { type: string, format: date-time, nullable: true }
+        appliance_category:
+          type: string
+          enum: [ac, fridge, washing_machine, ro, microwave, other]
+          nullable: true
+        appliance_brand: { type: string, nullable: true }
+        appliance_model: { type: string, nullable: true }
+        urgency:
+          type: string
+          enum: [low, medium, high]
+          nullable: true
+        preferred_contact_method:
+          type: string
+          enum: [call, whatsapp, email]
+          nullable: true
+        message: { type: string, nullable: true }
+        source: { type: string, enum: [website, referral, social, other, partner] }
+        status:
+          type: string
+          enum: [new, contacted, qualified, proposal, scheduled_visit, in_progress, on_hold, closed_won, closed_lost]
+        priority:
+          type: string
+          enum: [low, medium, high]
+        assigned_to: { type: string, format: uuid, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      required: [id, name, email, source, status, priority, created_at, updated_at]
+
+    LeadListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/LeadResponse" }
+        total: { type: integer, example: 1 }
+        page: { type: integer, example: 1 }
+        limit: { type: integer, example: 20 }
+      required: [items, total, page, limit]
+
+    LeadAssignRequest:
+      type: object
+      properties:
+        assigned_to:
+          type: string
+          format: uuid
+          nullable: true
+          description: Auth user id (uuid). Use null to unassign.
+
+    LeadStatusUpdateRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [new, contacted, qualified, proposal, scheduled_visit, in_progress, on_hold, closed_won, closed_lost]
+      required: [status]
+
+    LeadActivityCreateRequest:
+      type: object
+      properties:
+        activity_type:
+          type: string
+          enum: [created, assigned, status_changed, note]
+          example: note
+        description: { type: string, example: "Called customer and scheduled demo" }
+      required: [activity_type, description]
+
+    LeadActivityResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        lead_id: { type: string, format: uuid }
+        activity_type:
+          type: string
+          enum: [created, assigned, status_changed, note]
+        description: { type: string }
+        performed_by: { type: string, format: uuid, nullable: true }
+        created_at: { type: string, format: date-time }
+      required: [id, lead_id, activity_type, description, created_at]
+
+    LeadActivityListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/LeadActivityResponse" }
+        total: { type: integer, example: 1 }
+        page: { type: integer, example: 1 }
+        limit: { type: integer, example: 20 }
+      required: [items, total, page, limit]
+
+    CouponCreateRequest:
+      type: object
+      properties:
+        kind: { type: string, enum: [promo], example: promo }
+        code:
+          type: string
+          nullable: true
+          description: If omitted, service auto-generates a code.
+          example: diwali2026_ABC123XYZ9
+        campaign_name: { type: string, nullable: true, example: diwali2026 }
+        discount_type: { type: string, enum: [percent, fixed], example: percent }
+        discount_value: { type: number, example: 10 }
+        applies_to:
+          type: array
+          items: { type: string }
+          nullable: true
+          example: [rental, amc]
+        min_amount: { type: number, nullable: true, example: 499 }
+        max_redemptions: { type: integer, nullable: true, example: 1000 }
+        per_user_limit: { type: integer, nullable: true, example: 1 }
+        valid_from: { type: string, format: date-time, nullable: true }
+        valid_to: { type: string, format: date-time, nullable: true }
+        active: { type: boolean, example: true }
+      required: [kind, discount_type, discount_value]
+
+    CouponResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        kind: { type: string, enum: [promo, referral] }
+        campaign_name: { type: string, nullable: true }
+        discount_type: { type: string, enum: [percent, fixed] }
+        discount_value: { type: number }
+        applies_to:
+          type: array
+          items: { type: string }
+          nullable: true
+        min_amount: { type: number, nullable: true }
+        max_redemptions: { type: integer, nullable: true }
+        per_user_limit: { type: integer, nullable: true }
+        redeemed_count: { type: integer }
+        valid_from: { type: string, format: date-time, nullable: true }
+        valid_to: { type: string, format: date-time, nullable: true }
+        active: { type: boolean }
+        referrer_user_id: { type: string, format: uuid, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      required: [id, code, kind, discount_type, discount_value, redeemed_count, active, created_at, updated_at]
+
+    CouponListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/CouponResponse" }
+        total: { type: integer }
+      required: [items, total]
+
+    ReferralProgramUpdateRequest:
+      type: object
+      properties:
+        referrer_credit_amount:
+          type: number
+          description: Fixed credit amount (one-time) for the referrer, applied on next rental renewal.
+          example: 100
+        referred_percent: { type: integer, example: 5 }
+        active: { type: boolean, example: true }
+      required: [referrer_credit_amount, referred_percent]
+
+    ReferralProgramResponse:
+      type: object
+      properties:
+        referrer_credit_amount: { type: number }
+        referred_percent: { type: integer }
+        active: { type: boolean }
+        created_at: { type: string, format: date-time }
+      required: [referrer_credit_amount, referred_percent, active, created_at]
+
+    ReferralGenerateResponse:
+      type: object
+      properties:
+        code: { type: string, example: REFABC123XYZ9 }
+      required: [code]
+
+    PlanCreateRequest:
+      type: object
+      properties:
+        plan_code: { type: string, example: RENTAL_BASIC_MONTHLY }
+        name: { type: string, example: Rental Basic Monthly }
+        category: { type: string, enum: [rental, amc, service_bundle] }
+        billing_period: { type: string, enum: [monthly, quarterly, yearly, one_time] }
+        price_amount: { type: number, example: 999 }
+        price_currency: { type: string, example: INR }
+        trial_days: { type: integer, nullable: true, example: 0 }
+        active: { type: boolean, example: true }
+        limits:
+          type: object
+          nullable: true
+          example:
+            number_of_users: 3
+            service_requests_per_month: 2
+      required: [plan_code, name, category, billing_period, price_amount, price_currency]
+
+    PlanUpdateRequest:
+      type: object
+      properties:
+        name: { type: string }
+        price_amount: { type: number }
+        trial_days: { type: integer, nullable: true }
+        active: { type: boolean }
+        limits: { type: object, nullable: true }
+
+    PlanResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        plan_code: { type: string }
+        name: { type: string }
+        category: { type: string, enum: [rental, amc, service_bundle] }
+        billing_period: { type: string, enum: [monthly, quarterly, yearly, one_time] }
+        price_amount: { type: number }
+        price_currency: { type: string }
+        trial_days: { type: integer, nullable: true }
+        active: { type: boolean }
+        limits: { type: object, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      required: [id, plan_code, name, category, billing_period, price_amount, price_currency, active, created_at, updated_at]
+
+    PlanListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/PlanResponse" }
+        total: { type: integer }
+      required: [items, total]
+
+    SubscriptionCreateRequest:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Admin-only. Subscribers create for themselves.
+        plan_id: { type: string, format: uuid }
+        billing_period: { type: string, enum: [monthly, quarterly, yearly] }
+        auto_renew: { type: boolean, example: true }
+      required: [plan_id, billing_period, auto_renew]
+
+    SubscriptionUpdateRequest:
+      type: object
+      properties:
+        billing_period: { type: string, enum: [monthly, quarterly, yearly] }
+        auto_renew: { type: boolean }
+        status: { type: string, enum: [active, cancelled, paused] }
+        next_renewal_override_at: { type: string, format: date-time, nullable: true }
+
+    SubscriptionResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        plan_id: { type: string, format: uuid }
+        status: { type: string, enum: [active, cancelled, paused] }
+        billing_period: { type: string, enum: [monthly, quarterly, yearly] }
+        auto_renew: { type: boolean }
+        start_at: { type: string, format: date-time }
+        renewal_anchor_at: { type: string, format: date-time }
+        next_renewal_at: { type: string, format: date-time, nullable: true }
+        next_renewal_override_at: { type: string, format: date-time, nullable: true }
+        end_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      required: [id, user_id, plan_id, status, billing_period, auto_renew, start_at, renewal_anchor_at, created_at, updated_at]
+
+    SubscriptionQuoteRequest:
+      type: object
+      properties:
+        base_amount:
+          type: number
+          description: Base amount BEFORE GST.
+          example: 1000
+        service_type: { type: string, enum: [rental, service], default: rental }
+        promo_code: { type: string, nullable: true }
+        referral_code: { type: string, nullable: true }
+      required: [base_amount, service_type]
+
+    SubscriptionQuoteResponse:
+      type: object
+      properties:
+        base_amount: { type: number }
+        discount_amount: { type: number }
+        credit_applied_amount: { type: number }
+        amount_before_gst: { type: number }
+        gst_percent: { type: number }
+        gst_amount: { type: number }
+        total_amount: { type: number }
+        applied_codes:
+          type: array
+          items: { type: string }
+      required: [base_amount, discount_amount, credit_applied_amount, amount_before_gst, gst_percent, gst_amount, total_amount, applied_codes]
+
+    TaxConfigUpsertRequest:
+      type: object
+      properties:
+        rental_gst_percent: { type: number, minimum: 0, maximum: 100 }
+        service_gst_percent: { type: number, minimum: 0, maximum: 100 }
+      required: [rental_gst_percent, service_gst_percent]
+
+    TaxConfigResponse:
+      type: object
+      properties:
+        rental_gst_percent: { type: number }
+        service_gst_percent: { type: number }
+        updated_at: { type: string, format: date-time }
+      required: [rental_gst_percent, service_gst_percent, updated_at]
+
+    PurchaseRequest:
+      type: object
+      properties:
+        base_amount: { type: number, description: Base amount BEFORE GST. }
+        service_type: { type: string, enum: [rental, service], default: rental }
+        promo_code: { type: string, nullable: true }
+        referral_code: { type: string, nullable: true }
+      required: [base_amount, service_type]
+
+    OrderResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        subscription_id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        order_type: { type: string, enum: [purchase, renewal] }
+        service_type: { type: string, enum: [rental, service] }
+        base_amount: { type: number }
+        discount_amount: { type: number }
+        credit_applied_amount: { type: number }
+        amount_before_gst: { type: number }
+        gst_percent: { type: number }
+        gst_amount: { type: number }
+        total_amount: { type: number }
+        promo_code: { type: string, nullable: true }
+        referral_code: { type: string, nullable: true }
+        applied_codes:
+          type: array
+          items: { type: string }
+        applied_credit_id: { type: string, format: uuid, nullable: true }
+        payment_intent_id: { type: string, format: uuid, nullable: true }
+        status: { type: string, enum: [paid, failed, pending] }
+        created_at: { type: string, format: date-time }
+      required:
+        - id
+        - subscription_id
+        - user_id
+        - order_type
+        - service_type
+        - base_amount
+        - discount_amount
+        - credit_applied_amount
+        - amount_before_gst
+        - gst_percent
+        - gst_amount
+        - total_amount
+        - applied_codes
+        - status
+        - created_at
+
+    TicketCreateRequest:
+      type: object
+      properties:
+        ticket_type: { type: string, enum: [installation, service, repair] }
+        priority: { type: string, enum: [low, medium, high, urgent], default: medium }
+        title: { type: string }
+        description: { type: string }
+        location_address: { type: string, nullable: true }
+      required: [ticket_type, title, description]
+
+    TicketResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        ticket_number: { type: string }
+        subscriber_id: { type: string, format: uuid }
+        subscription_id: { type: string, format: uuid, nullable: true }
+        ticket_type: { type: string, enum: [installation, service, repair] }
+        priority: { type: string, enum: [low, medium, high, urgent] }
+        status: { type: string, enum: [created, assigned, in_progress, completed, closed, cancelled] }
+        title: { type: string }
+        description: { type: string }
+        location_address: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      required:
+        - id
+        - ticket_number
+        - subscriber_id
+        - ticket_type
+        - priority
+        - status
+        - title
+        - description
+        - created_at
+        - updated_at
+
+    TicketListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/TicketResponse" }
+        total: { type: integer }
+      required: [items, total]
+
+    StaffCreateRequest:
+      type: object
+      properties:
+        email: { type: string, format: email }
+        phone: { type: string, nullable: true }
+        password: { type: string }
+        role: { type: string, enum: [cms_user, technician] }
+      required: [email, password, role]
+
+    GatewayConfigUpsertRequest:
+      type: object
+      properties:
+        provider: { type: string, enum: [mock, cashfree, razorpay] }
+        mode: { type: string, enum: [sandbox, live], default: sandbox }
+        credentials: { type: object, nullable: true }
+      required: [provider, mode]
+
+    GatewayConfigResponse:
+      type: object
+      properties:
+        provider: { type: string, enum: [mock, cashfree, razorpay] }
+        mode: { type: string, enum: [sandbox, live] }
+        is_active: { type: boolean }
+        updated_at: { type: string, format: date-time }
+      required: [provider, mode, is_active, updated_at]
+
+    PaymentInitiateResponse:
+      type: object
+      properties:
+        intent_id: { type: string, format: uuid }
+        provider: { type: string, enum: [mock, cashfree, razorpay] }
+        mode: { type: string, enum: [sandbox, live] }
+        checkout_payload: { type: object }
+        note: { type: string }
+      required: [intent_id, provider, mode, checkout_payload, note]
+
+    InvoiceResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        invoice_number: { type: string }
+        user_id: { type: string, format: uuid }
+        order_id: { type: string, format: uuid }
+        status: { type: string, enum: [issued, paid, cancelled] }
+        base_amount: { type: number }
+        discount_amount: { type: number }
+        credit_applied_amount: { type: number }
+        amount_before_gst: { type: number }
+        gst_percent: { type: number }
+        gst_amount: { type: number }
+        total_amount: { type: number }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      required:
+        - id
+        - invoice_number
+        - user_id
+        - order_id
+        - status
+        - base_amount
+        - discount_amount
+        - credit_applied_amount
+        - amount_before_gst
+        - gst_percent
+        - gst_amount
+        - total_amount
+        - created_at
+        - updated_at
+
+    InvoiceListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/InvoiceResponse" }
+        total: { type: integer }
+      required: [items, total]
+
+paths:
+  /health:
+    get:
+      tags: [gateway]
+      summary: Gateway health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              example:
+                status: healthy
+                service: gateway-service
+
+  /metrics:
+    get:
+      tags: [gateway]
+      summary: Gateway Prometheus metrics
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/auth/register:
+    post:
+      tags: [auth]
+      summary: Register a user (OTP required)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+            example:
+              email: user@example.com
+              phone: "+919876543210"
+              password: "SecurePassword123!"
+              role: subscriber
+              first_name: John
+              last_name: Doe
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RegisterResponse" }
+        "409":
+          description: Already exists
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/auth/otp/request:
+    post:
+      tags: [auth]
+      summary: Request OTP
+      description: |
+        Local dev uses a static OTP (default `123456`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OtpRequestRequest" }
+            example:
+              identifier: user@example.com
+              purpose: login
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OtpRequestResponse" }
+
+  /api/v1/auth/otp/verify:
+    post:
+      tags: [auth]
+      summary: Verify OTP and login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OtpVerifyRequest" }
+            example:
+              identifier: user@example.com
+              otp_code: "123456"
+              purpose: login
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenResponse" }
+        "401":
+          description: Invalid OTP
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      summary: Password login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordLoginRequest" }
+            example:
+              email: user@example.com
+              password: "SecurePassword123!"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenResponse" }
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [auth]
+      summary: Refresh access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RefreshRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RefreshResponse" }
+        "401":
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/auth/logout:
+    post:
+      tags: [auth]
+      summary: Logout (revoke refresh token)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LogoutRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              example:
+                message: Logged out successfully
+
+  /api/v1/auth/validate:
+    post:
+      tags: [auth]
+      summary: Validate access token (used by gateway)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ValidateRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidateResponse" }
+
+  /api/v1/auth/me:
+    get:
+      tags: [auth]
+      summary: Get current user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MeResponse" }
+
+  /api/v1/subscribers/me:
+    get:
+      tags: [subscribers]
+      summary: Get current subscriber profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubscriberMeResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+    put:
+      tags: [subscribers]
+      summary: Update current subscriber profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubscriberUpdateRequest" }
+            example:
+              first_name: John
+              last_name: Doe
+              company_name: Acme Corp
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubscriberMeResponse" }
+
+  /api/v1/leads:
+    post:
+      tags: [leads]
+      summary: Create a lead (public)
+      description: |
+        Public lead capture endpoint for the website enquiry form.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LeadCreateRequest" }
+            example:
+              name: John Doe
+              email: john@example.com
+              phone: "+919876543210"
+              company: Acme Corp
+              message: Interested in your services
+              source: website
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeadResponse" }
+    get:
+      tags: [leads]
+      summary: List leads (protected)
+      description: Lead management is available to `admin`, `cms_user`, and `technician` (write restrictions apply).
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: source
+          schema: { type: string }
+        - in: query
+          name: assigned_to
+          schema: { type: string, format: uuid }
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: customer_type
+          schema: { type: string }
+        - in: query
+          name: service_category
+          schema: { type: string }
+        - in: query
+          name: state
+          schema: { type: string }
+        - in: query
+          name: city
+          schema: { type: string }
+        - in: query
+          name: locality
+          schema: { type: string }
+        - in: query
+          name: appliance_category
+          schema: { type: string }
+        - in: query
+          name: urgency
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeadListResponse" }
+
+  /api/v1/leads/{lead_id}:
+    get:
+      tags: [leads]
+      summary: Get lead by id (protected)
+      description: Lead management is available to `admin`, `cms_user`, and `technician` (write restrictions apply).
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: lead_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeadResponse" }
+
+  /api/v1/leads/{lead_id}/assign:
+    patch:
+      tags: [leads]
+      summary: Assign/unassign lead to an auth user_id (protected)
+      description: Assignment requires `admin` or `can_assign_leads=true`. Admin cannot be assigned as assignee.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: lead_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LeadAssignRequest" }
+            example:
+              assigned_to: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeadResponse" }
+
+  /api/v1/leads/{lead_id}/status:
+    patch:
+      tags: [leads]
+      summary: Update lead status (protected)
+      description: Status changes require managing permissions (admin, assigned technician, or `can_manage_unassigned_leads=true`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: lead_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LeadStatusUpdateRequest" }
+            example:
+              status: contacted
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeadResponse" }
+
+  /api/v1/leads/{lead_id}/activities:
+    get:
+      tags: [leads]
+      summary: List lead activities (protected)
+      description: Lead management is available to `admin`, `cms_user`, and `technician` (write restrictions apply).
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: lead_id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeadActivityListResponse" }
+    post:
+      tags: [leads]
+      summary: Add lead activity note (protected)
+      description: Adding activities requires managing permissions (admin, assigned technician, or `can_manage_unassigned_leads=true`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: lead_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LeadActivityCreateRequest" }
+            example:
+              activity_type: note
+              description: Called and scheduled demo
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeadActivityResponse" }
+
+  /api/v1/content/case-studies:
+    get:
+      tags: [content]
+      summary: List published case studies (public)
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
+        - in: query
+          name: search
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+    post:
+      tags: [content]
+      summary: Create case study (protected)
+      description: Content management is restricted to `admin` and `cms_user`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              title: "Success Story: Acme Corp"
+              slug: success-story-acme-corp
+              summary: Brief summary
+              content: Full content here...
+              featured_image_url: https://example.com/image.jpg
+              seo_title: "Acme Corp Success Story"
+              seo_description: Learn how we helped...
+              seo_keywords: case study, success, acme
+              og_image_url: https://example.com/og.jpg
+      responses:
+        "201":
+          description: Created
+
+  /api/v1/content/case-studies/{slug}:
+    get:
+      tags: [content]
+      summary: Get case study by slug (public)
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/content/manage/case-studies:
+    get:
+      tags: [content]
+      summary: List case studies (manage) (protected)
+      description: Content management is restricted to `admin` and `cms_user`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [draft, published, archived] }
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/content/case-studies/{case_study_id}:
+    patch:
+      tags: [content]
+      summary: Update case study (protected)
+      description: Slug is immutable after publish.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: case_study_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              title: Updated title
+              summary: Updated summary
+      responses:
+        "200":
+          description: OK
+    delete:
+      tags: [content]
+      summary: Delete case study (protected)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: case_study_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Deleted
+
+  /api/v1/content/case-studies/{case_study_id}/publish:
+    post:
+      tags: [content]
+      summary: Publish case study (protected)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: case_study_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/content/case-studies/{case_study_id}/unpublish:
+    post:
+      tags: [content]
+      summary: Unpublish case study back to draft (protected)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: case_study_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/coupons:
+    get:
+      tags: [coupons]
+      summary: List coupons (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: kind
+          schema: { type: string, enum: [promo, referral] }
+        - in: query
+          name: active
+          schema: { type: boolean }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CouponListResponse" }
+    post:
+      tags: [coupons]
+      summary: Create coupon (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CouponCreateRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CouponResponse" }
+
+  /api/v1/coupons/referrals/generate:
+    post:
+      tags: [coupons]
+      summary: Generate referral code (subscriber)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReferralGenerateResponse" }
+
+  /api/v1/coupons/referrals/program:
+    put:
+      tags: [coupons]
+      summary: Set referral program percentages (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReferralProgramUpdateRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReferralProgramResponse" }
+
+  /api/v1/plans:
+    get:
+      tags: [plans]
+      summary: List plans (public)
+      parameters:
+        - in: query
+          name: active
+          schema: { type: boolean, default: true }
+        - in: query
+          name: category
+          schema: { type: string }
+        - in: query
+          name: billing_period
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlanListResponse" }
+    post:
+      tags: [plans]
+      summary: Create plan (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlanCreateRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlanResponse" }
+
+  /api/v1/plans/{plan_id}:
+    get:
+      tags: [plans]
+      summary: Get plan by id (public)
+      parameters:
+        - in: path
+          name: plan_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlanResponse" }
+    patch:
+      tags: [plans]
+      summary: Update plan (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: plan_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlanUpdateRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlanResponse" }
+
+  /api/v1/subscriptions:
+    post:
+      tags: [subscriptions]
+      summary: Create subscription (subscriber; admin can create for any user)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubscriptionCreateRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubscriptionResponse" }
+
+  /api/v1/subscriptions/me:
+    get:
+      tags: [subscriptions]
+      summary: Get my subscription (subscriber)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubscriptionResponse" }
+
+  /api/v1/subscriptions/{subscription_id}:
+    patch:
+      tags: [subscriptions]
+      summary: Update subscription (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: subscription_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubscriptionUpdateRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubscriptionResponse" }
+
+  /api/v1/subscriptions/admin/subscriptions:
+    get:
+      tags: [subscriptions]
+      summary: List subscriptions (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: user_id
+          schema: { type: string, format: uuid }
+        - in: query
+          name: plan_id
+          schema: { type: string, format: uuid }
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: due_before
+          schema: { type: string, format: date-time }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0, minimum: 0 }
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/subscriptions/admin/orders:
+    get:
+      tags: [subscriptions]
+      summary: List orders (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: user_id
+          schema: { type: string, format: uuid }
+        - in: query
+          name: subscription_id
+          schema: { type: string, format: uuid }
+        - in: query
+          name: order_type
+          schema: { type: string }
+        - in: query
+          name: service_type
+          schema: { type: string }
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: created_from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: created_to
+          schema: { type: string, format: date-time }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0, minimum: 0 }
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/subscriptions/me/quote:
+    post:
+      tags: [subscriptions]
+      summary: Quote stacked discounts (before GST)
+      description: |
+        Supports stacking promo + referral codes.
+        Discounts are applied BEFORE GST (tax computed later).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubscriptionQuoteRequest" }
+            example:
+              base_amount: 1000
+              service_type: rental
+              promo_code: diwali2026_ABC123XYZ9
+              referral_code: REFABC123XYZ9
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubscriptionQuoteResponse" }
+
+  /api/v1/subscriptions/taxes:
+    get:
+      tags: [subscriptions]
+      summary: Get GST slabs (admin)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+    put:
+      tags: [subscriptions]
+      summary: Set GST slabs (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              rental_gst_percent: 12
+              service_gst_percent: 18
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/subscriptions/me/purchase:
+    post:
+      tags: [subscriptions]
+      summary: Purchase (create pending order) (subscriber)
+      description: |
+        Applies stacked promo+referral discounts **before GST**, then computes GST slab based on `service_type`.
+        Creates a **pending** order + a `payment_intent_id` (payment-service).
+        After payment success (webhook), coupon codes are redeemed (side effects) and referral rewards are generated.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              base_amount: 1000
+              service_type: rental
+              promo_code: diwali2026_ABC123XYZ9
+              referral_code: REFABC123XYZ9
+      responses:
+        "201":
+          description: Created
+
+  /api/v1/subscriptions/me/renew:
+    post:
+      tags: [subscriptions]
+      summary: Renew (create pending renewal order) (subscriber)
+      description: |
+        Applies stacked discounts **before GST** and applies **one pending fixed referrer credit per renewal** (rental only),
+        then computes GST.
+        Creates a **pending** order + a `payment_intent_id` (payment-service).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              base_amount: 1000
+              service_type: rental
+      responses:
+        "201":
+          description: Created
+
+  /api/v1/payments/webhooks/mock:
+    post:
+      tags: [payments]
+      summary: Mock payment webhook (local dev)
+      description: |
+        Marks a payment intent as paid/failed in payment-service, and if it is linked to a subscription order,
+        triggers subscription-service to mark the order as paid (side effects).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              intent_id: 59f5ca71-ea3a-4553-b13a-d92b0d552557
+              status: paid
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/payments/admin/gateway-config:
+    get:
+      tags: [payments]
+      summary: Get active payment gateway config (admin)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GatewayConfigResponse" }
+    put:
+      tags: [payments]
+      summary: Set active payment gateway config (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GatewayConfigUpsertRequest" }
+            example:
+              provider: cashfree
+              mode: sandbox
+              credentials:
+                app_id: "xxx"
+                secret_key: "yyy"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GatewayConfigResponse" }
+
+  /api/v1/payments/me/intents/{intent_id}/initiate:
+    post:
+      tags: [payments]
+      summary: Initiate payment for an intent (subscriber)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: intent_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentInitiateResponse" }
+
+  /api/v1/billing/admin/invoices:
+    get:
+      tags: [billing]
+      summary: List invoices (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: user_id
+          schema: { type: string, format: uuid }
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0, minimum: 0 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceListResponse" }
+
+  /api/v1/billing/me/invoices:
+    get:
+      tags: [billing]
+      summary: List my invoices (subscriber)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0, minimum: 0 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceListResponse" }
+
+  /api/v1/auth/subscribers/{subscriber_id}/staff:
+    post:
+      tags: [auth]
+      summary: Create staff user under subscriber tenant (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: subscriber_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StaffCreateRequest" }
+      responses:
+        "201":
+          description: Created
+
+  /api/v1/tickets:
+    post:
+      tags: [tickets]
+      summary: Create a ticket (subscriber)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TicketCreateRequest" }
+            example:
+              ticket_type: service
+              priority: medium
+              title: "AC not cooling properly"
+              description: "AC unit is running but not cooling the room"
+              location_address: "123 Main St, Mumbai"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TicketResponse" }
+
+  /api/v1/tickets/me:
+    get:
+      tags: [tickets]
+      summary: List my tickets (subscriber)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: ticket_type
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0, minimum: 0 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TicketListResponse" }
+

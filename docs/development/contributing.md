@@ -8,6 +8,7 @@
 - Use type hints
 - Write docstrings for public functions
 - Maximum line length: 100 characters
+- Format with Black and lint with Ruff (`black .`, `ruff check .`)
 
 ### TypeScript/JavaScript
 
