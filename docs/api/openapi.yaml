@@ -24,6 +24,14 @@ tags:
   - name: coupons
   - name: plans
   - name: subscriptions
+  - name: billing
+  - name: payments
+  - name: tickets
+  - name: assignments
+  - name: media
+  - name: notifications
+  - name: audit
+  - name: reporting
 components:
   securitySchemes:
     bearerAuth:
@@ -765,6 +773,22 @@ paths:
               example:
                 status: healthy
                 service: gateway-service
+
+  /ready:
+    get:
+      tags: [gateway]
+      summary: Gateway readiness check
+      responses:
+        "200":
+          description: OK
+
+  /live:
+    get:
+      tags: [gateway]
+      summary: Gateway liveness check
+      responses:
+        "200":
+          description: OK
 
   /metrics:
     get:
@@ -2025,4 +2049,145 @@ paths:
       responses:
         "200":
           description: OK
+
+  /api/v1/assignments:
+    post:
+      tags: [assignments]
+      summary: Create assignment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "201": { description: Created }
+
+  /api/v1/assignments/{assignment_id}/unassign:
+    post:
+      tags: [assignments]
+      summary: Unassign
+      parameters:
+        - in: path
+          name: assignment_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: OK }
+
+  /api/v1/assignments/admin:
+    get:
+      tags: [assignments]
+      summary: Admin list assignments
+      responses:
+        "200": { description: OK }
+
+  /api/v1/assignments/me:
+    get:
+      tags: [assignments]
+      summary: List my assignments
+      responses:
+        "200": { description: OK }
+
+  /api/v1/assignments/{assignment_id}/accept:
+    post:
+      tags: [assignments]
+      summary: Accept assignment
+      parameters:
+        - in: path
+          name: assignment_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: OK }
+
+  /api/v1/assignments/{assignment_id}/reject:
+    post:
+      tags: [assignments]
+      summary: Reject assignment
+      parameters:
+        - in: path
+          name: assignment_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: OK }
+
+  /api/v1/media/presign:
+    post:
+      tags: [media]
+      summary: Get a presigned upload URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "201": { description: Created }
+
+  /api/v1/media/{media_id}/complete:
+    post:
+      tags: [media]
+      summary: Mark upload complete
+      parameters:
+        - in: path
+          name: media_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: OK }
+
+  /api/v1/media:
+    get:
+      tags: [media]
+      summary: List media
+      responses:
+        "200": { description: OK }
+
+  /api/v1/media/{media_id}/download:
+    get:
+      tags: [media]
+      summary: Download media (redirect)
+      parameters:
+        - in: path
+          name: media_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "302": { description: Redirect }
+
+  /api/v1/media/internal/generate-invoice-pdf:
+    post:
+      tags: [media]
+      summary: Generate invoice PDF (internal)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "201": { description: Created }
+
+  /api/v1/media/internal/download/{media_id}:
+    get:
+      tags: [media]
+      summary: Download media (internal redirect)
+      parameters:
+        - in: path
+          name: media_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "302": { description: Redirect }
+
+  /api/v1/notifications/internal/send:
+    post:
+      tags: [notifications]
+      summary: Send notification (internal)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200": { description: OK }
 

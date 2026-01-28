@@ -3,11 +3,95 @@ info:
   title: billing-service
   version: 0.1.0
 paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200": { description: OK }
+  /ready:
+    get:
+      summary: Readiness check
+      responses:
+        "200": { description: OK }
+  /live:
+    get:
+      summary: Liveness check
+      responses:
+        "200": { description: OK }
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        "200": { description: OK }
+
+  /api/v1/billing/admin/invoices:
+    get:
+      summary: Admin list invoices
+      responses:
+        "200": { description: OK }
+
+  /api/v1/billing/me/invoices:
+    get:
+      summary: List my invoices
+      responses:
+        "200": { description: OK }
+
+  /api/v1/billing/internal/invoices/from-order/{order_id}:
+    post:
+      summary: Create invoice from order (internal)
+      parameters:
+        - in: path
+          name: order_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: OK }
+
+  /api/v1/billing/internal/invoices/{invoice_id}/mark-paid:
+    patch:
+      summary: Mark invoice paid (internal)
+      parameters:
+        - in: path
+          name: invoice_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: OK }
+
+  /api/v1/billing/me/invoices/{invoice_id}/pdf:
+    get:
+      summary: Get my invoice PDF (redirect)
+      parameters:
+        - in: path
+          name: invoice_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "302": { description: Redirect }
+
+  /api/v1/billing/admin/invoices/{invoice_id}/pdf:
+    get:
+      summary: Admin get invoice PDF (redirect)
+      parameters:
+        - in: path
+          name: invoice_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "302": { description: Redirect }
+
+  /api/v1/billing/internal/jobs/mark-overdue-invoices:
+    post:
+      summary: Mark overdue invoices (internal job)
+      responses:
+        "200": { description: OK }
+
   /api/v1/billing/credits/me:
     get:
       summary: Get my credit balance and ledger entries
       responses:
         "200": { description: OK }
+
   /api/v1/billing/internal/credits/{subscriber_id}/add:
     post:
       summary: Add credit (internal)
@@ -16,8 +100,14 @@ paths:
           name: subscriber_id
           required: true
           schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
       responses:
         "201": { description: Created }
+
   /api/v1/billing/internal/credits/{subscriber_id}/apply-to-invoice:
     post:
       summary: Apply credits to invoice (internal)
@@ -26,15 +116,50 @@ paths:
           name: subscriber_id
           required: true
           schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
       responses:
         "200": { description: OK }
+
+  /api/v1/billing/internal/credits/{subscriber_id}/reverse:
+    post:
+      summary: Reverse credit debit (internal)
+      parameters:
+        - in: path
+          name: subscriber_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "201": { description: Created }
+
   /api/v1/billing/internal/proration/estimate:
     post:
       summary: Proration estimate (internal)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
       responses:
         "200": { description: OK }
+
   /api/v1/billing/internal/proration/apply:
     post:
       summary: Proration apply (internal)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
       responses:
         "200": { description: OK }
+
+components: {}

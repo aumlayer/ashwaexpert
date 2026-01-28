@@ -1,0 +1,101 @@
+ openapi: 3.0.3
+ info:
+   title: ticket-service
+   version: 0.1.0
+ paths:
+   /health:
+     get:
+       summary: Health check
+       responses:
+         "200": { description: OK }
+   /ready:
+     get:
+       summary: Readiness check
+       responses:
+         "200": { description: OK }
+   /live:
+     get:
+       summary: Liveness check
+       responses:
+         "200": { description: OK }
+   /metrics:
+     get:
+       summary: Prometheus metrics
+       responses:
+         "200": { description: OK }
+
+   /api/v1/tickets:
+     post:
+       summary: Create ticket
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { type: object }
+       responses:
+         "201": { description: Created }
+
+   /api/v1/tickets/me:
+     get:
+       summary: List my tickets
+       responses:
+         "200": { description: OK }
+
+   /api/v1/tickets/{ticket_id}:
+     get:
+       summary: Get ticket
+       parameters:
+         - in: path
+           name: ticket_id
+           required: true
+           schema: { type: string, format: uuid }
+       responses:
+         "200": { description: OK }
+     patch:
+       summary: Update ticket status
+       parameters:
+         - in: path
+           name: ticket_id
+           required: true
+           schema: { type: string, format: uuid }
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { type: object }
+       responses:
+         "200": { description: OK }
+
+   /api/v1/tickets/admin:
+     get:
+       summary: Admin list tickets
+       responses:
+         "200": { description: OK }
+
+   /api/v1/tickets/internal/{ticket_id}/assign-technician:
+     patch:
+       summary: Assign technician (internal)
+       parameters:
+         - in: path
+           name: ticket_id
+           required: true
+           schema: { type: string, format: uuid }
+       responses:
+         "200": { description: OK }
+
+   /api/v1/tickets/admin/sla-configs:
+     get:
+       summary: List SLA configs (admin)
+       responses:
+         "200": { description: OK }
+     put:
+       summary: Upsert SLA config (admin)
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { type: object }
+       responses:
+         "200": { description: OK }
+
+ components: {}

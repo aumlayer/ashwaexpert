@@ -3,11 +3,48 @@ info:
   title: content-service
   version: 0.1.0
 paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200": { description: OK }
+  /ready:
+    get:
+      summary: Readiness check
+      responses:
+        "200": { description: OK }
+  /live:
+    get:
+      summary: Liveness check
+      responses:
+        "200": { description: OK }
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        "200": { description: OK }
+
   /api/v1/content/case-studies:
     get:
       summary: List published case studies (cached)
       responses:
         "200": { description: OK }
+    post:
+      summary: Create case study (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "201": { description: Created }
+
+  /api/v1/content/manage/case-studies:
+    get:
+      summary: Manage case studies (admin)
+      responses:
+        "200": { description: OK }
+
   /api/v1/content/case-studies/{slug}:
     get:
       summary: Get published case study by slug (cached)
@@ -18,3 +55,52 @@ paths:
           schema: { type: string }
       responses:
         "200": { description: OK }
+
+  /api/v1/content/case-studies/{case_study_id}:
+    patch:
+      summary: Update case study (admin)
+      parameters:
+        - in: path
+          name: case_study_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200": { description: OK }
+    delete:
+      summary: Delete case study (admin)
+      parameters:
+        - in: path
+          name: case_study_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204": { description: No Content }
+
+  /api/v1/content/case-studies/{case_study_id}/publish:
+    post:
+      summary: Publish case study (admin)
+      parameters:
+        - in: path
+          name: case_study_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: OK }
+
+  /api/v1/content/case-studies/{case_study_id}/unpublish:
+    post:
+      summary: Unpublish case study (admin)
+      parameters:
+        - in: path
+          name: case_study_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: OK }
+
+components: {}

@@ -1,0 +1,67 @@
+ openapi: 3.0.3
+ info:
+   title: plan-service
+   version: 0.1.0
+ paths:
+   /health:
+     get:
+       summary: Health check
+       responses:
+         "200": { description: OK }
+   /ready:
+     get:
+       summary: Readiness check
+       responses:
+         "200": { description: OK }
+   /live:
+     get:
+       summary: Liveness check
+       responses:
+         "200": { description: OK }
+   /metrics:
+     get:
+       summary: Prometheus metrics
+       responses:
+         "200": { description: OK }
+
+   /api/v1/plans:
+     get:
+       summary: List plans
+       responses:
+         "200": { description: OK }
+     post:
+       summary: Create plan
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { type: object }
+       responses:
+         "201": { description: Created }
+
+   /api/v1/plans/{plan_id}:
+     get:
+       summary: Get plan
+       parameters:
+         - in: path
+           name: plan_id
+           required: true
+           schema: { type: string, format: uuid }
+       responses:
+         "200": { description: OK }
+     patch:
+       summary: Update plan
+       parameters:
+         - in: path
+           name: plan_id
+           required: true
+           schema: { type: string, format: uuid }
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { type: object }
+       responses:
+         "200": { description: OK }
+
+ components: {}

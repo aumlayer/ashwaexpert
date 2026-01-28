@@ -1,0 +1,88 @@
+ openapi: 3.0.3
+ info:
+   title: media-service
+   version: 0.1.0
+ paths:
+   /health:
+     get:
+       summary: Health check
+       responses:
+         "200": { description: OK }
+   /ready:
+     get:
+       summary: Readiness check
+       responses:
+         "200": { description: OK }
+   /live:
+     get:
+       summary: Liveness check
+       responses:
+         "200": { description: OK }
+   /metrics:
+     get:
+       summary: Prometheus metrics
+       responses:
+         "200": { description: OK }
+
+   /api/v1/media/presign:
+     post:
+       summary: Get a presigned upload URL
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { type: object }
+       responses:
+         "201": { description: Created }
+
+   /api/v1/media/{media_id}/complete:
+     post:
+       summary: Mark an upload complete
+       parameters:
+         - in: path
+           name: media_id
+           required: true
+           schema: { type: string, format: uuid }
+       responses:
+         "200": { description: OK }
+
+   /api/v1/media:
+     get:
+       summary: List media by owner
+       responses:
+         "200": { description: OK }
+
+   /api/v1/media/{media_id}/download:
+     get:
+       summary: Download media (redirect)
+       parameters:
+         - in: path
+           name: media_id
+           required: true
+           schema: { type: string, format: uuid }
+       responses:
+         "302": { description: Redirect }
+
+   /api/v1/media/internal/generate-invoice-pdf:
+     post:
+       summary: Generate invoice PDF (internal)
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { type: object }
+       responses:
+         "201": { description: Created }
+
+   /api/v1/media/internal/download/{media_id}:
+     get:
+       summary: Download media (internal redirect)
+       parameters:
+         - in: path
+           name: media_id
+           required: true
+           schema: { type: string, format: uuid }
+       responses:
+         "302": { description: Redirect }
+
+ components: {}

@@ -1,0 +1,38 @@
+ openapi: 3.0.3
+ info:
+   title: notification-service
+   version: 0.1.0
+ paths:
+   /health:
+     get:
+       summary: Health check
+       responses:
+         "200": { description: OK }
+   /ready:
+     get:
+       summary: Readiness check
+       responses:
+         "200": { description: OK }
+   /live:
+     get:
+       summary: Liveness check
+       responses:
+         "200": { description: OK }
+   /metrics:
+     get:
+       summary: Prometheus metrics
+       responses:
+         "200": { description: OK }
+
+   /api/v1/notifications/internal/send:
+     post:
+       summary: Send notification (internal)
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { type: object }
+       responses:
+         "200": { description: OK }
+
+ components: {}

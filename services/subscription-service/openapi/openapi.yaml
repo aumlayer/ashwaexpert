@@ -1,0 +1,186 @@
+ openapi: 3.0.3
+ info:
+   title: subscription-service
+   version: 0.1.0
+ paths:
+   /health:
+     get:
+       summary: Health check
+       responses:
+         "200": { description: OK }
+   /metrics:
+     get:
+       summary: Prometheus metrics
+       responses:
+         "200": { description: OK }
+
+   /api/v1/subscriptions:
+     post:
+       summary: Create subscription
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { type: object }
+       responses:
+         "201": { description: Created }
+
+   /api/v1/subscriptions/me:
+     get:
+       summary: Get my subscription
+       responses:
+         "200": { description: OK }
+
+   /api/v1/subscriptions/{subscription_id}:
+     patch:
+       summary: Admin update subscription
+       parameters:
+         - in: path
+           name: subscription_id
+           required: true
+           schema: { type: string, format: uuid }
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { type: object }
+       responses:
+         "200": { description: OK }
+
+   /api/v1/subscriptions/admin/subscriptions:
+     get:
+       summary: Admin list subscriptions
+       responses:
+         "200": { description: OK }
+
+   /api/v1/subscriptions/admin/orders:
+     get:
+       summary: Admin list orders
+       responses:
+         "200": { description: OK }
+
+   /api/v1/subscriptions/me/quote:
+     post:
+       summary: Quote subscription
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { type: object }
+       responses:
+         "200": { description: OK }
+
+   /api/v1/subscriptions/taxes:
+     get:
+       summary: Get tax config (admin)
+       responses:
+         "200": { description: OK }
+     put:
+       summary: Upsert tax config (admin)
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { type: object }
+       responses:
+         "200": { description: OK }
+
+   /api/v1/subscriptions/me/purchase:
+     post:
+       summary: Purchase subscription
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { type: object }
+       responses:
+         "201": { description: Created }
+
+   /api/v1/subscriptions/me/renew:
+     post:
+       summary: Renew subscription
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { type: object }
+       responses:
+         "201": { description: Created }
+
+   /api/v1/subscriptions/internal/orders/{order_id}/mark-paid:
+     post:
+       summary: Mark order paid (internal)
+       parameters:
+         - in: path
+           name: order_id
+           required: true
+           schema: { type: string, format: uuid }
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { type: object }
+       responses:
+         "200": { description: OK }
+
+   /api/v1/subscriptions/{subscription_id}/plan-change:
+     post:
+       summary: Request plan change
+       parameters:
+         - in: path
+           name: subscription_id
+           required: true
+           schema: { type: string, format: uuid }
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { type: object }
+       responses:
+         "200": { description: OK }
+
+   /api/v1/subscriptions/{subscription_id}/plan-change/apply:
+     post:
+       summary: Apply plan change
+       parameters:
+         - in: path
+           name: subscription_id
+           required: true
+           schema: { type: string, format: uuid }
+       responses:
+         "200": { description: OK }
+
+   /api/v1/subscriptions/{subscription_id}/cancel:
+     post:
+       summary: Request cancellation
+       parameters:
+         - in: path
+           name: subscription_id
+           required: true
+           schema: { type: string, format: uuid }
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { type: object }
+       responses:
+         "200": { description: OK }
+
+   /api/v1/subscriptions/internal/cancellation/finalize-due:
+     post:
+       summary: Finalize due cancellations (internal)
+       responses:
+         "200": { description: OK }
+
+   /api/v1/subscriptions/{subscription_id}/events:
+     get:
+       summary: List subscription events
+       parameters:
+         - in: path
+           name: subscription_id
+           required: true
+           schema: { type: string, format: uuid }
+       responses:
+         "200": { description: OK }
+
+ components: {}

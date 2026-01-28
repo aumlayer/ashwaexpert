@@ -1,0 +1,53 @@
+ openapi: 3.0.3
+ info:
+   title: subscriber-service
+   version: 0.1.0
+ paths:
+   /health:
+     get:
+       summary: Health check
+       responses:
+         "200": { description: OK }
+   /ready:
+     get:
+       summary: Readiness check
+       responses:
+         "200": { description: OK }
+   /live:
+     get:
+       summary: Liveness check
+       responses:
+         "200": { description: OK }
+   /metrics:
+     get:
+       summary: Prometheus metrics
+       responses:
+         "200": { description: OK }
+
+   /api/v1/subscribers/me:
+     get:
+       summary: Get my subscriber profile
+       responses:
+         "200": { description: OK }
+     put:
+       summary: Update my subscriber profile
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { type: object }
+       responses:
+         "200": { description: OK }
+
+   /api/v1/subscribers/internal/from-auth:
+     post:
+       summary: Create subscriber profile from auth (internal)
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { type: object }
+       responses:
+         "201": { description: Created }
+
+ components: {}

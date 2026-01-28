@@ -1,32 +1,37 @@
 openapi: 3.0.3
 info:
-  title: lead-service
+  title: coupon-service
   version: 0.1.0
 paths:
   /health:
     get:
+      tags: [coupons]
       summary: Health check
       responses:
         "200": { description: OK }
   /ready:
     get:
+      tags: [coupons]
       summary: Readiness check
       responses:
         "200": { description: OK }
   /live:
     get:
+      tags: [coupons]
       summary: Liveness check
       responses:
         "200": { description: OK }
   /metrics:
     get:
+      tags: [coupons]
       summary: Prometheus metrics
       responses:
         "200": { description: OK }
 
-  /api/v1/leads:
+  /api/v1/coupons:
     post:
-      summary: Public create lead (triggers notifications best-effort)
+      tags: [coupons]
+      summary: Create coupon (admin)
       requestBody:
         required: true
         content:
@@ -35,29 +40,15 @@ paths:
       responses:
         "201": { description: Created }
     get:
-      summary: List leads
+      tags: [coupons]
+      summary: List coupons (admin)
       responses:
         "200": { description: OK }
 
-  /api/v1/leads/{lead_id}:
-    get:
-      summary: Get lead
-      parameters:
-        - in: path
-          name: lead_id
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        "200": { description: OK }
-
-  /api/v1/leads/{lead_id}/assign:
-    patch:
-      summary: Assign lead
-      parameters:
-        - in: path
-          name: lead_id
-          required: true
-          schema: { type: string, format: uuid }
+  /api/v1/coupons/referrals/program:
+    put:
+      tags: [coupons]
+      summary: Set referral program (admin)
       requestBody:
         required: true
         content:
@@ -66,37 +57,51 @@ paths:
       responses:
         "200": { description: OK }
 
-  /api/v1/leads/{lead_id}/status:
-    patch:
-      summary: Update lead status
-      parameters:
-        - in: path
-          name: lead_id
-          required: true
-          schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { type: object }
-      responses:
-        "200": { description: OK }
-
-  /api/v1/leads/{lead_id}/activities:
-    get:
-      summary: List lead activities
-      parameters:
-        - in: path
-          name: lead_id
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        "200": { description: OK }
+  /api/v1/coupons/referrals/generate:
     post:
-      summary: Add lead activity
+      tags: [coupons]
+      summary: Generate referral code (authenticated)
+      responses:
+        "200": { description: OK }
+
+  /api/v1/coupons/internal/redeem:
+    post:
+      tags: [coupons]
+      summary: Redeem coupon code (internal)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200": { description: OK }
+
+  /api/v1/coupons/internal/validate:
+    post:
+      tags: [coupons]
+      summary: Validate coupon code (internal)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200": { description: OK }
+
+  /api/v1/coupons/internal/credits/pending:
+    get:
+      tags: [coupons]
+      summary: List pending user credits (internal)
+      responses:
+        "200": { description: OK }
+
+  /api/v1/coupons/internal/credits/{credit_id}/apply:
+    post:
+      tags: [coupons]
+      summary: Apply user credit (internal)
       parameters:
         - in: path
-          name: lead_id
+          name: credit_id
           required: true
           schema: { type: string, format: uuid }
       requestBody:
@@ -105,6 +110,6 @@ paths:
           application/json:
             schema: { type: object }
       responses:
-        "201": { description: Created }
+        "200": { description: OK }
 
 components: {}

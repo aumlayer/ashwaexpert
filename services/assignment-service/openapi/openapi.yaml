@@ -1,0 +1,83 @@
+ openapi: 3.0.3
+ info:
+   title: assignment-service
+   version: 0.1.0
+ paths:
+   /health:
+     get:
+       summary: Health check
+       responses:
+         "200": { description: OK }
+   /ready:
+     get:
+       summary: Readiness check
+       responses:
+         "200": { description: OK }
+   /live:
+     get:
+       summary: Liveness check
+       responses:
+         "200": { description: OK }
+   /metrics:
+     get:
+       summary: Prometheus metrics
+       responses:
+         "200": { description: OK }
+
+   /api/v1/assignments:
+     post:
+       summary: Create assignment
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { type: object }
+       responses:
+         "201": { description: Created }
+
+   /api/v1/assignments/{assignment_id}/unassign:
+     post:
+       summary: Unassign
+       parameters:
+         - in: path
+           name: assignment_id
+           required: true
+           schema: { type: string, format: uuid }
+       responses:
+         "200": { description: OK }
+
+   /api/v1/assignments/admin:
+     get:
+       summary: Admin list assignments
+       responses:
+         "200": { description: OK }
+
+   /api/v1/assignments/me:
+     get:
+       summary: List my assignments
+       responses:
+         "200": { description: OK }
+
+   /api/v1/assignments/{assignment_id}/accept:
+     post:
+       summary: Accept assignment
+       parameters:
+         - in: path
+           name: assignment_id
+           required: true
+           schema: { type: string, format: uuid }
+       responses:
+         "200": { description: OK }
+
+   /api/v1/assignments/{assignment_id}/reject:
+     post:
+       summary: Reject assignment
+       parameters:
+         - in: path
+           name: assignment_id
+           required: true
+           schema: { type: string, format: uuid }
+       responses:
+         "200": { description: OK }
+
+ components: {}
