@@ -330,7 +330,20 @@ async def metrics_and_logging(request: Request, call_next):
                 # Never expose internal subscription endpoints through the gateway
                 if request.url.path.startswith("/api/v1/subscriptions/internal/"):
                     return JSONResponse(status_code=403, content={"detail": "Forbidden"})
-                if role not in {"subscriber", "admin"}:
+                # Plan change apply: admin only
+                if request.url.path.endswith("/plan-change/apply"):
+                    if role != "admin":
+                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                # Plan change request, cancellation: subscriber (own) or admin
+                elif request.url.path.endswith("/plan-change") or request.url.path.endswith("/cancel"):
+                    if role not in {"subscriber", "admin"}:
+                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                # Events history: subscriber (own) or admin
+                elif request.url.path.endswith("/events"):
+                    if role not in {"subscriber", "admin"}:
+                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                # Other subscription endpoints: subscriber or admin
+                elif role not in {"subscriber", "admin"}:
                     return JSONResponse(status_code=403, content={"detail": "Forbidden"})
 
             # Payment management
@@ -344,6 +357,9 @@ async def metrics_and_logging(request: Request, call_next):
                 # Subscriber-only
                 if request.url.path.startswith("/api/v1/payments/me/") and role != "subscriber":
                     return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                # Payment intent gateway create/retry (Wave 3): subscriber/admin only
+                if request.url.path.startswith("/api/v1/payments/intents/") and role not in {"subscriber", "admin"}:
+                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
 
             # Billing management
             if request.url.path.startswith("/api/v1/billing/"):
@@ -356,11 +372,67 @@ async def metrics_and_logging(request: Request, call_next):
                 # Subscriber-only
                 if request.url.path.startswith("/api/v1/billing/me/") and role != "subscriber":
                     return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                # Subscriber credits endpoint (Wave 3)
+                if request.url.path.startswith("/api/v1/billing/credits/me") and role != "subscriber":
+                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
 
             # Plan management (public read is allowed in _is_public_request)
             if request.url.path.startswith("/api/v1/plans") and request.method.upper() != "GET":
                 if role != "admin":
                     return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+
+            # Ticket management (Phase 6)
+            if request.url.path.startswith("/api/v1/tickets"):
+                # Never expose internal ticket endpoints through the gateway
+                if request.url.path.startswith("/api/v1/tickets/internal/"):
+                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                # Public: POST /api/v1/tickets (subscriber creates ticket)
+                if request.method.upper() == "POST" and request.url.path.rstrip("/") == "/api/v1/tickets":
+                    if role not in {"subscriber", "admin"}:
+                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                # Admin-only: /api/v1/tickets/admin
+                elif request.url.path.startswith("/api/v1/tickets/admin"):
+                    if role != "admin":
+                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                # Subscriber, technician, admin: GET /api/v1/tickets/{id}, PATCH /api/v1/tickets/{id}
+                # Subscriber: GET /api/v1/tickets/me
+                elif request.url.path.startswith("/api/v1/tickets/me"):
+                    if role != "subscriber":
+                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                # Other ticket endpoints: subscriber, technician, admin (enforced in ticket-service)
+                elif role not in {"subscriber", "technician", "admin"}:
+                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+
+            # Assignment management (Phase 6)
+            if request.url.path.startswith("/api/v1/assignments"):
+                # Never expose internal assignment endpoints through the gateway
+                if request.url.path.startswith("/api/v1/assignments/internal/"):
+                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                # Admin-only: POST /api/v1/assignments, GET /api/v1/assignments/admin
+                if request.url.path.startswith("/api/v1/assignments/admin") or (
+                    request.method.upper() == "POST" and request.url.path.rstrip("/") == "/api/v1/assignments"
+                ):
+                    if role != "admin":
+                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                # Technician-only: GET /api/v1/assignments/me, POST /api/v1/assignments/{id}/accept, POST /api/v1/assignments/{id}/reject
+                elif request.url.path.startswith("/api/v1/assignments/me") or request.url.path.endswith(
+                    ("/accept", "/reject")
+                ):
+                    if role != "technician":
+                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                # Admin: unassign
+                elif request.url.path.endswith("/unassign"):
+                    if role != "admin":
+                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+
+            # Media management (Phase 6: ticket photos)
+            if request.url.path.startswith("/api/v1/media"):
+                # Never expose internal media endpoints through the gateway
+                if request.url.path.startswith("/api/v1/media/internal/"):
+                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                # Ticket photos: subscriber (own tickets), technician (assigned tickets), admin (any)
+                # Other media: admin only (for now)
+                # Authorization is enforced in media-service based on owner_type
 
         response = await call_next(request)
         response.headers["X-Correlation-ID"] = correlation_id

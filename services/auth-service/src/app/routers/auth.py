@@ -455,7 +455,12 @@ async def internal_user_lookup(
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return InternalUserLookupResponse(id=user.id, role=user.role)  # type: ignore[arg-type]
+    return InternalUserLookupResponse(
+        id=user.id,
+        role=user.role,  # type: ignore[arg-type]
+        email=str(user.email) if user.email else None,
+        phone=user.phone,
+    )
 
 
 @router.post("/subscribers/{subscriber_id}/staff", response_model=UserListItem, status_code=status.HTTP_201_CREATED)

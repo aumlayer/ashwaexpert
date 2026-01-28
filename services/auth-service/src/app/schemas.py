@@ -128,6 +128,8 @@ class UpdateUserCapabilitiesRequest(BaseModel):
 class InternalUserLookupResponse(BaseModel):
     id: UUID
     role: Role
+    email: Optional[str] = None
+    phone: Optional[str] = None
 
 
 class StaffCreateRequest(BaseModel):

@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 from uuid import uuid4
 
+from redis import Redis
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
@@ -30,11 +31,43 @@ SERVICE_VERSION = os.getenv("SERVICE_VERSION", "0.1.0")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "local")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
+REDIS_URL = os.getenv("REDIS_URL", "")
+CACHE_TTL_SECONDS = int(os.getenv("CONTENT_CACHE_TTL_SECONDS", "600"))
 
 logging.basicConfig(level=LOG_LEVEL, format="%(message)s")
 logger = logging.getLogger(SERVICE_NAME)
 
 app = FastAPI(title=SERVICE_NAME, version=SERVICE_VERSION)
+
+_redis: Redis | None = None
+
+
+def _get_redis() -> Redis | None:
+    global _redis
+    if _redis is not None:
+        return _redis
+    if not REDIS_URL:
+        return None
+    _redis = Redis.from_url(REDIS_URL, decode_responses=True)
+    return _redis
+
+
+def _cache_version(r: Redis) -> int:
+    try:
+        v = r.get("casestudies:cache_version")
+        return int(v) if v else 1
+    except Exception:
+        return 1
+
+
+def _bump_cache_version() -> None:
+    r = _get_redis()
+    if not r:
+        return
+    try:
+        r.incr("casestudies:cache_version")
+    except Exception:
+        return
 
 origins = [o.strip() for o in CORS_ORIGINS.split(",") if o.strip()] or ["*"]
 app.add_middleware(
@@ -127,6 +160,20 @@ async def list_published_case_studies(
     limit: int = Query(default=10, ge=1, le=50),
     search: str | None = Query(default=None),
 ):
+    r = _get_redis()
+    cache_key = None
+    if r:
+        # versioned cache key to support safe invalidation
+        v = _cache_version(r)
+        search_norm = (search or "").strip().lower()
+        cache_key = f"casestudies:v{v}:list:{page}:{limit}:{search_norm}"
+        try:
+            cached = r.get(cache_key)
+            if cached:
+                return json.loads(cached)
+        except Exception:
+            pass
+
     stmt = select(CaseStudy).where(CaseStudy.status == "published")
     count_stmt = select(func.count()).select_from(CaseStudy).where(CaseStudy.status == "published")
     if search:
@@ -138,7 +185,7 @@ async def list_published_case_studies(
     stmt = stmt.order_by(CaseStudy.published_at.desc().nullslast()).offset((page - 1) * limit).limit(limit)
     rows = db.execute(stmt).scalars().all()
 
-    return CaseStudyListResponse(
+    payload = CaseStudyListResponse(
         items=[
             CaseStudyListItem(
                 id=c.id,
@@ -154,16 +201,34 @@ async def list_published_case_studies(
         page=page,
         limit=limit,
     )
+    if r and cache_key:
+        try:
+            r.setex(cache_key, CACHE_TTL_SECONDS, payload.model_dump_json())
+        except Exception:
+            pass
+    return payload
 
 
 @app.get("/api/v1/content/case-studies/{slug}", response_model=CaseStudyDetail)
 async def get_case_study_by_slug(slug: str, db: Session = Depends(get_db)):
+    r = _get_redis()
+    cache_key = None
+    if r:
+        v = _cache_version(r)
+        cache_key = f"casestudies:v{v}:detail:{slug}"
+        try:
+            cached = r.get(cache_key)
+            if cached:
+                return json.loads(cached)
+        except Exception:
+            pass
+
     cs = db.execute(
         select(CaseStudy).where(CaseStudy.slug == slug, CaseStudy.status == "published")
     ).scalar_one_or_none()
     if not cs:
         raise HTTPException(status_code=404, detail="Case study not found")
-    return CaseStudyDetail(
+    payload = CaseStudyDetail(
         id=cs.id,
         title=cs.title,
         slug=cs.slug,
@@ -179,6 +244,12 @@ async def get_case_study_by_slug(slug: str, db: Session = Depends(get_db)):
         created_at=cs.created_at,
         updated_at=cs.updated_at,
     )
+    if r and cache_key:
+        try:
+            r.setex(cache_key, CACHE_TTL_SECONDS, payload.model_dump_json())
+        except Exception:
+            pass
+    return payload
 
 
 @app.post("/api/v1/content/case-studies", response_model=CaseStudyDetail, status_code=201)
@@ -217,6 +288,7 @@ async def create_case_study(
     db.add(cs)
     db.commit()
     db.refresh(cs)
+    _bump_cache_version()
     return CaseStudyDetail(
         id=cs.id,
         title=cs.title,
@@ -321,6 +393,7 @@ async def update_case_study(
     db.add(cs)
     db.commit()
     db.refresh(cs)
+    _bump_cache_version()
     return CaseStudyDetail(
         id=cs.id,
         title=cs.title,
@@ -351,6 +424,7 @@ async def publish_case_study(case_study_id: UUID, db: Session = Depends(get_db))
     db.add(cs)
     db.commit()
     db.refresh(cs)
+    _bump_cache_version()
     return CaseStudyDetail(
         id=cs.id,
         title=cs.title,
@@ -381,6 +455,7 @@ async def unpublish_case_study(case_study_id: UUID, db: Session = Depends(get_db
     db.add(cs)
     db.commit()
     db.refresh(cs)
+    _bump_cache_version()
     return CaseStudyDetail(
         id=cs.id,
         title=cs.title,
@@ -406,6 +481,7 @@ async def delete_case_study(case_study_id: UUID, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Case study not found")
     db.delete(cs)
     db.commit()
+    _bump_cache_version()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

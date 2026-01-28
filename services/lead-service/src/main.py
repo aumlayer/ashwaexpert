@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 from uuid import uuid4
 
+import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
@@ -31,6 +32,10 @@ SERVICE_VERSION = os.getenv("SERVICE_VERSION", "0.1.0")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "local")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
+NOTIFICATION_SERVICE_URL = os.getenv("NOTIFICATION_SERVICE_URL", "")
+INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "")
+LEAD_INTERNAL_ALERT_EMAIL = os.getenv("LEAD_INTERNAL_ALERT_EMAIL", "")
+LEAD_INTERNAL_ALERT_PHONE = os.getenv("LEAD_INTERNAL_ALERT_PHONE", "")
 
 logging.basicConfig(level=LOG_LEVEL, format="%(message)s")
 logger = logging.getLogger(SERVICE_NAME)
@@ -174,7 +179,7 @@ async def metrics() -> Response:
 
 
 @app.post("/api/v1/leads", response_model=LeadResponse, status_code=201)
-async def create_lead(req: CreateLeadRequest, db: Session = Depends(get_db)):
+async def create_lead(req: CreateLeadRequest, db: Session = Depends(get_db), request: Request = None):
     now = datetime.now(timezone.utc)
     lead = Lead(
         name=req.name,
@@ -214,6 +219,78 @@ async def create_lead(req: CreateLeadRequest, db: Session = Depends(get_db)):
     )
     db.add(activity)
     db.commit()
+
+    # Best-effort notifications (do not block lead creation)
+    correlation_id = getattr(request.state, "correlation_id", str(uuid4()))
+    if NOTIFICATION_SERVICE_URL and INTERNAL_API_KEY:
+        try:
+            # Confirmation to lead
+            if lead.email:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    await client.post(
+                        f"{NOTIFICATION_SERVICE_URL}/api/v1/notifications/internal/send",
+                        headers={"X-Internal-API-Key": INTERNAL_API_KEY, "x-correlation-id": correlation_id},
+                        json={
+                            "template_key": "lead_created",
+                            "channel": "email",
+                            "recipient": str(lead.email),
+                            "context": {"name": lead.name, "city": lead.city, "service_category": lead.service_category},
+                        },
+                    )
+            elif lead.phone:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    await client.post(
+                        f"{NOTIFICATION_SERVICE_URL}/api/v1/notifications/internal/send",
+                        headers={"X-Internal-API-Key": INTERNAL_API_KEY, "x-correlation-id": correlation_id},
+                        json={
+                            "template_key": "lead_created",
+                            "channel": "sms",
+                            "recipient": lead.phone,
+                            "context": {"name": lead.name, "city": lead.city, "service_category": lead.service_category},
+                        },
+                    )
+
+            # Internal alert (ops/admin)
+            if LEAD_INTERNAL_ALERT_EMAIL:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    await client.post(
+                        f"{NOTIFICATION_SERVICE_URL}/api/v1/notifications/internal/send",
+                        headers={"X-Internal-API-Key": INTERNAL_API_KEY, "x-correlation-id": correlation_id},
+                        json={
+                            "template_key": "lead_created_internal",
+                            "channel": "email",
+                            "recipient": LEAD_INTERNAL_ALERT_EMAIL,
+                            "context": {
+                                "lead_id": str(lead.id),
+                                "name": lead.name,
+                                "phone": lead.phone,
+                                "email": str(lead.email),
+                                "city": lead.city,
+                                "service_category": lead.service_category,
+                                "source": lead.source,
+                            },
+                        },
+                    )
+            elif LEAD_INTERNAL_ALERT_PHONE:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    await client.post(
+                        f"{NOTIFICATION_SERVICE_URL}/api/v1/notifications/internal/send",
+                        headers={"X-Internal-API-Key": INTERNAL_API_KEY, "x-correlation-id": correlation_id},
+                        json={
+                            "template_key": "lead_created_internal",
+                            "channel": "sms",
+                            "recipient": LEAD_INTERNAL_ALERT_PHONE,
+                            "context": {
+                                "lead_id": str(lead.id),
+                                "name": lead.name,
+                                "phone": lead.phone,
+                                "city": lead.city,
+                                "service_category": lead.service_category,
+                            },
+                        },
+                    )
+        except Exception as e:
+            logger.warning("Lead notification failed (best-effort): %s", e)
 
     return LeadResponse(
         id=lead.id,

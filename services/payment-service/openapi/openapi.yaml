@@ -1,0 +1,30 @@
+openapi: 3.0.3
+info:
+  title: payment-service
+  version: 0.1.0
+paths:
+  /api/v1/payments/intents/{intent_id}/create-gateway-order:
+    post:
+      summary: Create Cashfree gateway order/session
+      parameters:
+        - in: path
+          name: intent_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: OK }
+  /api/v1/payments/intents/{intent_id}/retry:
+    post:
+      summary: Retry Cashfree gateway order/session
+      parameters:
+        - in: path
+          name: intent_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: OK }
+  /api/v1/payments/internal/jobs/reconcile-due:
+    post:
+      summary: Reconcile due pending intents (internal)
+      responses:
+        "200": { description: OK }

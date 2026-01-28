@@ -5,7 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
-SubscriptionStatus = Literal["active", "cancelled", "paused"]
+SubscriptionStatus = Literal["active", "cancelled", "paused", "cancellation_requested", "past_due", "expired"]
 BillingPeriod = Literal["monthly", "quarterly", "yearly"]
 ServiceType = Literal["rental", "service"]
 OrderType = Literal["purchase", "renewal"]
@@ -40,6 +40,13 @@ class SubscriptionResponse(BaseModel):
     next_renewal_at: Optional[datetime] = None
     next_renewal_override_at: Optional[datetime] = None
     end_at: Optional[datetime] = None
+    cancel_requested_at: Optional[datetime] = None
+    cancel_effective_at: Optional[datetime] = None
+    cancel_reason: Optional[str] = None
+    plan_change_requested_plan_id: Optional[UUID] = None
+    plan_change_requested_at: Optional[datetime] = None
+    plan_change_effective_at: Optional[datetime] = None
+    plan_change_mode: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -114,5 +121,35 @@ class SubscriptionListResponse(BaseModel):
 
 class OrderListResponse(BaseModel):
     items: list[OrderResponse]
+    total: int
+
+
+class PlanChangeRequest(BaseModel):
+    new_plan_id: UUID
+    mode: Literal["immediate", "next_cycle"] = "next_cycle"
+    effective_at: Optional[datetime] = None
+
+
+class CancellationRequest(BaseModel):
+    reason: Optional[str] = None
+    effective_mode: Literal["notice_1_month", "end_of_cycle"] = "notice_1_month"
+
+
+class SubscriptionEventResponse(BaseModel):
+    id: UUID
+    subscription_id: UUID
+    event_type: str
+    actor_user_id: Optional[UUID] = None
+    actor_role: Optional[str] = None
+    from_status: Optional[str] = None
+    to_status: Optional[str] = None
+    from_plan_id: Optional[UUID] = None
+    to_plan_id: Optional[UUID] = None
+    payload: Optional[dict] = None
+    created_at: datetime
+
+
+class SubscriptionEventListResponse(BaseModel):
+    items: list[SubscriptionEventResponse]
     total: int
 
