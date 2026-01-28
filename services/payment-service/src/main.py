@@ -38,12 +38,8 @@ SERVICE_VERSION = os.getenv("SERVICE_VERSION", "0.1.0")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "local")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
-<<<<<<< Updated upstream
 SUBSCRIPTION_SERVICE_URL = os.getenv("SUBSCRIPTION_SERVICE_URL", "")
 BILLING_SERVICE_URL = os.getenv("BILLING_SERVICE_URL", "")
-=======
-SUBSCRIPTION_SERVICE_URL = os.getenv("SUBSCRIPTION_SERVICE_URL", "http://subscription-service:8000")
->>>>>>> Stashed changes
 INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "")
 CASHFREE_WEBHOOK_SECRET = os.getenv("CASHFREE_WEBHOOK_SECRET", "")
 CASHFREE_API_BASE = os.getenv("CASHFREE_API_BASE", "")
@@ -127,26 +123,6 @@ async def metrics_and_logging(request: Request, call_next):
 async def health() -> dict:
     return {
         "status": "healthy",
-        "service": SERVICE_NAME,
-        "version": SERVICE_VERSION,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
-
-
-@app.get("/ready")
-async def ready() -> dict:
-    return {
-        "status": "ready",
-        "service": SERVICE_NAME,
-        "version": SERVICE_VERSION,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
-
-
-@app.get("/live")
-async def live() -> dict:
-    return {
-        "status": "live",
         "service": SERVICE_NAME,
         "version": SERVICE_VERSION,
         "timestamp": datetime.now(timezone.utc).isoformat(),

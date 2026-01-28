@@ -43,16 +43,10 @@ SERVICE_VERSION = os.getenv("SERVICE_VERSION", "0.1.0")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "local")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
-<<<<<<< Updated upstream
 COUPON_SERVICE_URL = os.getenv("COUPON_SERVICE_URL", "")
 PAYMENT_SERVICE_URL = os.getenv("PAYMENT_SERVICE_URL", "")
 BILLING_SERVICE_URL = os.getenv("BILLING_SERVICE_URL", "")
 NOTIFICATION_SERVICE_URL = os.getenv("NOTIFICATION_SERVICE_URL", "")
-=======
-COUPON_SERVICE_URL = os.getenv("COUPON_SERVICE_URL", "http://coupon-service:8000")
-PAYMENT_SERVICE_URL = os.getenv("PAYMENT_SERVICE_URL", "http://payment-service:8000")
-BILLING_SERVICE_URL = os.getenv("BILLING_SERVICE_URL", "http://billing-service:8000")
->>>>>>> Stashed changes
 INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "")
 
 logging.basicConfig(level=LOG_LEVEL, format="%(message)s")
@@ -133,26 +127,6 @@ async def metrics_and_logging(request: Request, call_next):
 async def health() -> dict:
     return {
         "status": "healthy",
-        "service": SERVICE_NAME,
-        "version": SERVICE_VERSION,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
-
-
-@app.get("/ready")
-async def ready() -> dict:
-    return {
-        "status": "ready",
-        "service": SERVICE_NAME,
-        "version": SERVICE_VERSION,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
-
-
-@app.get("/live")
-async def live() -> dict:
-    return {
-        "status": "live",
         "service": SERVICE_NAME,
         "version": SERVICE_VERSION,
         "timestamp": datetime.now(timezone.utc).isoformat(),
