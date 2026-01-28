@@ -59,7 +59,8 @@ services:
 
 networks:
   ashva-network:
-    external: true
+    name: ashva-network
+    driver: bridge
 
 volumes:
   prometheus-data:

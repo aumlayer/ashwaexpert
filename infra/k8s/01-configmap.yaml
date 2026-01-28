@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ashva-config
+  namespace: ashva
+data:
+  ENVIRONMENT: "local"
+  LOG_LEVEL: "INFO"
+  CORS_ORIGINS: "*"
+
+  JWT_ALGORITHM: "HS256"
+  DEV_STATIC_OTP: "123456"
+
+  # Infrastructure
+  REDIS_URL: "redis://redis:6379"
+
+  # Canonical in-cluster service URLs (Kubernetes DNS)
+  AUTH_SERVICE_URL: "http://auth-service:8000"
+  LEAD_SERVICE_URL: "http://lead-service:8000"
+  CONTENT_SERVICE_URL: "http://content-service:8000"
+  SUBSCRIBER_SERVICE_URL: "http://subscriber-service:8000"
+  COUPON_SERVICE_URL: "http://coupon-service:8000"
+  PLAN_SERVICE_URL: "http://plan-service:8000"
+  SUBSCRIPTION_SERVICE_URL: "http://subscription-service:8000"
+  BILLING_SERVICE_URL: "http://billing-service:8000"
+  PAYMENT_SERVICE_URL: "http://payment-service:8000"
+  TICKET_SERVICE_URL: "http://ticket-service:8000"
+  ASSIGNMENT_SERVICE_URL: "http://assignment-service:8000"
+  MEDIA_SERVICE_URL: "http://media-service:8000"
+  NOTIFICATION_SERVICE_URL: "http://notification-service:8000"
+  REPORTING_SERVICE_URL: "http://reporting-service:8000"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+
+  # Object storage (future)
+  MINIO_ENDPOINT: "http://minio:9000"

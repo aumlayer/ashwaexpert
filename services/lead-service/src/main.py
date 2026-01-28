@@ -173,6 +173,26 @@ async def health() -> dict:
     }
 
 
+@app.get("/ready")
+async def ready() -> dict:
+    return {
+        "status": "ready",
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.get("/live")
+async def live() -> dict:
+    return {
+        "status": "live",
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 @app.get("/metrics")
 async def metrics() -> Response:
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)

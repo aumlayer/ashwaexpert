@@ -1,0 +1,149 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ashva-postgres-init
+  namespace: ashva
+data:
+  init-schemas.sql: |
+    -- Initialize schemas for all microservices
+    -- This script creates separate schemas for each service
+    
+    -- Auth Service Schema
+    CREATE SCHEMA IF NOT EXISTS auth;
+    
+    -- Lead Service Schema
+    CREATE SCHEMA IF NOT EXISTS lead;
+    
+    -- Content Service Schema
+    CREATE SCHEMA IF NOT EXISTS content;
+    
+    -- Subscriber Service Schema
+    CREATE SCHEMA IF NOT EXISTS subscriber;
+    
+    -- Coupon Service Schema
+    CREATE SCHEMA IF NOT EXISTS coupon;
+    
+    -- Plan Service Schema
+    CREATE SCHEMA IF NOT EXISTS plan;
+    
+    -- Subscription Service Schema
+    CREATE SCHEMA IF NOT EXISTS subscription;
+    
+    -- Billing Service Schema
+    CREATE SCHEMA IF NOT EXISTS billing;
+    
+    -- Payment Service Schema
+    CREATE SCHEMA IF NOT EXISTS payment;
+    
+    -- Ticket Service Schema
+    CREATE SCHEMA IF NOT EXISTS ticket;
+    
+    -- Assignment Service Schema
+    CREATE SCHEMA IF NOT EXISTS assignment;
+    
+    -- Media Service Schema
+    CREATE SCHEMA IF NOT EXISTS media;
+    
+    -- Notification Service Schema
+    CREATE SCHEMA IF NOT EXISTS notification;
+    
+    -- Reporting Service Schema
+    CREATE SCHEMA IF NOT EXISTS reporting;
+    
+    -- Audit Service Schema
+    CREATE SCHEMA IF NOT EXISTS audit;
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: ashva
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: ashva
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:14-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ashva-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ashva-secrets
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: ashva-secrets
+                  key: POSTGRES_DB
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+            - name: postgres-init
+              mountPath: /docker-entrypoint-initdb.d/init-schemas.sql
+              subPath: init-schemas.sql
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+        - name: postgres-init
+          configMap:
+            name: ashva-postgres-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: ashva
+spec:
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432

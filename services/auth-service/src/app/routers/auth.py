@@ -107,7 +107,7 @@ async def _create_subscriber_profile_if_needed(user: User, req: RegisterRequest)
     if user.role != "subscriber":
         return
 
-    base_url = os.getenv("SUBSCRIBER_SERVICE_URL", "")
+    base_url = os.getenv("SUBSCRIBER_SERVICE_URL", "http://subscriber-service:8000")
     if not base_url:
         return
 

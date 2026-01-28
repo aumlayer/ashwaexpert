@@ -11,6 +11,7 @@ import yaml
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
+from fastapi.openapi.utils import get_openapi
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from redis import Redis
 
@@ -19,26 +20,26 @@ SERVICE_VERSION = os.getenv("SERVICE_VERSION", "0.1.0")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "local")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
-AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "")
-REDIS_URL = os.getenv("REDIS_URL", "")
+AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://auth-service:8000")
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
 CONSOLIDATED_OPENAPI_PATH = os.getenv("CONSOLIDATED_OPENAPI_PATH", "/app/openapi.yaml")
 
 SERVICE_URLS: Dict[str, str] = {
-    "auth": os.getenv("AUTH_SERVICE_URL", ""),
-    "leads": os.getenv("LEAD_SERVICE_URL", ""),
-    "content": os.getenv("CONTENT_SERVICE_URL", ""),
-    "subscribers": os.getenv("SUBSCRIBER_SERVICE_URL", ""),
-    "plans": os.getenv("PLAN_SERVICE_URL", ""),
-    "subscriptions": os.getenv("SUBSCRIPTION_SERVICE_URL", ""),
-    "billing": os.getenv("BILLING_SERVICE_URL", ""),
-    "payments": os.getenv("PAYMENT_SERVICE_URL", ""),
-    "tickets": os.getenv("TICKET_SERVICE_URL", ""),
-    "assignments": os.getenv("ASSIGNMENT_SERVICE_URL", ""),
-    "media": os.getenv("MEDIA_SERVICE_URL", ""),
-    "notifications": os.getenv("NOTIFICATION_SERVICE_URL", ""),
-    "reports": os.getenv("REPORTING_SERVICE_URL", ""),
-    "audit": os.getenv("AUDIT_SERVICE_URL", ""),
-    "coupons": os.getenv("COUPON_SERVICE_URL", ""),
+    "auth": os.getenv("AUTH_SERVICE_URL", "http://auth-service:8000"),
+    "leads": os.getenv("LEAD_SERVICE_URL", "http://lead-service:8000"),
+    "content": os.getenv("CONTENT_SERVICE_URL", "http://content-service:8000"),
+    "subscribers": os.getenv("SUBSCRIBER_SERVICE_URL", "http://subscriber-service:8000"),
+    "plans": os.getenv("PLAN_SERVICE_URL", "http://plan-service:8000"),
+    "subscriptions": os.getenv("SUBSCRIPTION_SERVICE_URL", "http://subscription-service:8000"),
+    "billing": os.getenv("BILLING_SERVICE_URL", "http://billing-service:8000"),
+    "payments": os.getenv("PAYMENT_SERVICE_URL", "http://payment-service:8000"),
+    "tickets": os.getenv("TICKET_SERVICE_URL", "http://ticket-service:8000"),
+    "assignments": os.getenv("ASSIGNMENT_SERVICE_URL", "http://assignment-service:8000"),
+    "media": os.getenv("MEDIA_SERVICE_URL", "http://media-service:8000"),
+    "notifications": os.getenv("NOTIFICATION_SERVICE_URL", "http://notification-service:8000"),
+    "reports": os.getenv("REPORTING_SERVICE_URL", "http://reporting-service:8000"),
+    "audit": os.getenv("AUDIT_SERVICE_URL", "http://audit-service:8000"),
+    "coupons": os.getenv("COUPON_SERVICE_URL", "http://coupon-service:8000"),
 }
 
 ALLOWED_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
@@ -81,7 +82,7 @@ _token_cache: dict[str, dict[str, object]] = {}
 INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "")
 
 def _is_public_path(path: str) -> bool:
-    if path in {"/health", "/metrics", "/openapi.json", "/openapi.yaml", "/docs"}:
+    if path in {"/health", "/ready", "/live", "/metrics", "/openapi.json", "/openapi.yaml", "/docs"}:
         return True
     if path.startswith("/docs"):
         return True
@@ -559,6 +560,26 @@ async def health() -> Dict[str, str]:
     }
 
 
+@app.get("/ready")
+async def ready() -> Dict[str, str]:
+    return {
+        "status": "ready",
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.get("/live")
+async def live() -> Dict[str, str]:
+    return {
+        "status": "live",
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 @app.get("/metrics")
 async def metrics() -> Response:
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
@@ -571,17 +592,25 @@ async def consolidated_openapi_yaml() -> Response:
             content = f.read()
         return Response(content=content, media_type="application/yaml")
     except FileNotFoundError:
-        return JSONResponse(status_code=404, content={"detail": "Consolidated OpenAPI not found"})
+        content = yaml.safe_dump(app.openapi())
+        return Response(content=content, media_type="application/yaml")
 
 
 def custom_openapi():
     global _consolidated_openapi_cache
     if _consolidated_openapi_cache is not None:
         return _consolidated_openapi_cache
-    with open(CONSOLIDATED_OPENAPI_PATH, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-    _consolidated_openapi_cache = data
-    return data
+    try:
+        with open(CONSOLIDATED_OPENAPI_PATH, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        _consolidated_openapi_cache = data
+        return data
+    except FileNotFoundError:
+        return get_openapi(
+            title=app.title,
+            version=app.version,
+            routes=app.routes,
+        )
 
 
 app.openapi = custom_openapi
