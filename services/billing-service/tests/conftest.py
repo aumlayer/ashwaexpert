@@ -15,3 +15,11 @@ def _test_env_defaults():
     os.environ.setdefault("NOTIFICATION_SERVICE_URL", "")
     os.environ.setdefault("AUTH_SERVICE_URL", "")
 
+
+import pytest
+from fastapi.testclient import TestClient
+from main import app  # type: ignore
+
+@pytest.fixture()
+def client():
+    return TestClient(app)

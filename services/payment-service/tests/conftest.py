@@ -13,3 +13,11 @@ def _test_env_defaults():
     os.environ.setdefault("CASHFREE_API_BASE", "")
     os.environ.setdefault("RECONCILE_PENDING_SECONDS", "1")
 
+
+import pytest
+from fastapi.testclient import TestClient
+from main import app  # type: ignore
+
+@pytest.fixture()
+def client():
+    return TestClient(app)
