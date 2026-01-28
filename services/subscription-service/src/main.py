@@ -9,21 +9,26 @@ from uuid import UUID
 from uuid import uuid4
 
 import httpx
+from dateutil.relativedelta import relativedelta
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, select, text
 from sqlalchemy.orm import Session
 
 from app.deps import get_db
-from app.models import Order, Subscription, TaxConfig
+from app.models import Order, Subscription, SubscriptionEvent, SubscriptionOutbox, TaxConfig
 from app.schemas import (
+    CancellationRequest,
     OrderResponse,
     OrderListResponse,
     InternalMarkOrderPaidRequest,
+    PlanChangeRequest,
     PurchaseRequest,
     SubscriptionCreateRequest,
+    SubscriptionEventListResponse,
+    SubscriptionEventResponse,
     SubscriptionQuoteRequest,
     SubscriptionQuoteResponse,
     SubscriptionListResponse,
@@ -41,6 +46,7 @@ CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
 COUPON_SERVICE_URL = os.getenv("COUPON_SERVICE_URL", "")
 PAYMENT_SERVICE_URL = os.getenv("PAYMENT_SERVICE_URL", "")
 BILLING_SERVICE_URL = os.getenv("BILLING_SERVICE_URL", "")
+NOTIFICATION_SERVICE_URL = os.getenv("NOTIFICATION_SERVICE_URL", "")
 INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "")
 
 logging.basicConfig(level=LOG_LEVEL, format="%(message)s")
@@ -164,6 +170,13 @@ def _subscription_to_response(s: Subscription) -> SubscriptionResponse:
         next_renewal_at=s.next_renewal_at,
         next_renewal_override_at=s.next_renewal_override_at,
         end_at=s.end_at,
+        cancel_requested_at=getattr(s, "cancel_requested_at", None),
+        cancel_effective_at=getattr(s, "cancel_effective_at", None),
+        cancel_reason=getattr(s, "cancel_reason", None),
+        plan_change_requested_plan_id=getattr(s, "plan_change_requested_plan_id", None),
+        plan_change_requested_at=getattr(s, "plan_change_requested_at", None),
+        plan_change_effective_at=getattr(s, "plan_change_effective_at", None),
+        plan_change_mode=getattr(s, "plan_change_mode", None),
         created_at=s.created_at,
         updated_at=s.updated_at,
     )
@@ -196,6 +209,108 @@ def _get_gst_percent(db: Session, service_type: str) -> float:
         return float(row.gst_percent)
     # safe defaults
     return 18.0 if service_type == "service" else 18.0
+
+
+def _write_subscription_event(
+    db: Session,
+    *,
+    subscription_id: UUID,
+    event_type: str,
+    actor_user_id: UUID | None = None,
+    actor_role: str | None = None,
+    from_status: str | None = None,
+    to_status: str | None = None,
+    from_plan_id: UUID | None = None,
+    to_plan_id: UUID | None = None,
+    payload: dict | None = None,
+) -> SubscriptionEvent:
+    """Write a subscription event. Always call this for lifecycle actions."""
+    now = datetime.now(timezone.utc)
+    event = SubscriptionEvent(
+        subscription_id=subscription_id,
+        event_type=event_type,
+        actor_user_id=actor_user_id,
+        actor_role=actor_role,
+        from_status=from_status,
+        to_status=to_status,
+        from_plan_id=from_plan_id,
+        to_plan_id=to_plan_id,
+        payload=payload,
+        created_at=now,
+    )
+    db.add(event)
+    return event
+
+
+def _enqueue_outbox(
+    db: Session,
+    *,
+    topic: str,
+    event_name: str,
+    payload: dict,
+) -> SubscriptionOutbox:
+    """Enqueue an outbox event for best-effort processing."""
+    now = datetime.now(timezone.utc)
+    outbox = SubscriptionOutbox(
+        topic=topic,
+        event_name=event_name,
+        payload=payload,
+        status="pending",
+        created_at=now,
+        attempt_count=0,
+    )
+    db.add(outbox)
+    return outbox
+
+
+def _compute_cancel_effective_at(
+    *,
+    now: datetime,
+    current_period_end: datetime | None,
+    effective_mode: str,
+) -> datetime:
+    """Compute cancel_effective_at based on mode. Returns max(now+1month, current_period_end) if end_of_cycle."""
+    if effective_mode == "end_of_cycle" and current_period_end:
+        return current_period_end
+    
+    # notice_1_month: add 1 calendar month
+    notice_date = now + relativedelta(months=1)
+    
+    # If current_period_end is later, use the later date
+    if current_period_end and current_period_end > notice_date:
+        return current_period_end
+    return notice_date
+
+
+async def _notify_subscriber(
+    *,
+    subscription_id: UUID,
+    user_id: UUID,
+    template_key: str,
+    context: dict,
+    correlation_id: str,
+) -> None:
+    """Send notification to subscriber (best-effort)."""
+    if not NOTIFICATION_SERVICE_URL or not INTERNAL_API_KEY:
+        return
+    
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            await client.post(
+                f"{NOTIFICATION_SERVICE_URL}/api/v1/notifications/internal/send",
+                headers={
+                    "X-Internal-API-Key": INTERNAL_API_KEY,
+                    "x-correlation-id": correlation_id,
+                },
+                json={
+                    "template_key": template_key,
+                    "channel": "email",
+                    "recipient": "",  # Would need user lookup
+                    "context": context,
+                },
+            )
+    except Exception as e:
+        logger.warning("Notification send failed (best-effort): %s", e)
 
 
 def _order_to_response(o: Order) -> OrderResponse:
@@ -774,6 +889,8 @@ async def internal_mark_order_paid(
         return _order_to_response(order)
 
     order.status = "paid"
+    if req.payment_intent_id and order.payment_intent_id is None:
+        order.payment_intent_id = req.payment_intent_id
     db.add(order)
     db.commit()
     db.refresh(order)
@@ -808,6 +925,480 @@ async def internal_mark_order_paid(
             db.commit()
 
     return _order_to_response(order)
+
+
+@app.post("/api/v1/subscriptions/{subscription_id}/plan-change", response_model=SubscriptionResponse)
+async def request_plan_change(
+    subscription_id: UUID,
+    req: PlanChangeRequest,
+    db: Session = Depends(get_db),
+    x_user_id: str | None = Header(default=None),
+    x_user_role: str | None = Header(default=None),
+    request: Request = None,
+):
+    """Request a plan change. Subscriber can request for own subscription, admin for any."""
+    user_id = _require_user_id(x_user_id)
+    role = str(x_user_role or "")
+
+    sub = db.get(Subscription, subscription_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    # Authorization
+    if role == "subscriber" and sub.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if role not in {"subscriber", "admin"}:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    # Validate plan exists (cross-schema check)
+    plan_row = db.execute(
+        text("SELECT COUNT(*) FROM plan.plans WHERE id = :pid AND active = true"),
+        {"pid": str(req.new_plan_id)},
+    ).scalar()
+    if plan_row == 0:
+        raise HTTPException(status_code=404, detail="Plan not found or inactive")
+
+    # Compute effective_at
+    now = datetime.now(timezone.utc)
+    if req.effective_at:
+        effective_at = req.effective_at
+    elif req.mode == "immediate":
+        effective_at = now
+    else:  # next_cycle
+        effective_at = sub.next_renewal_at or sub.renewal_anchor_at
+
+    # Persist request
+    sub.plan_change_requested_plan_id = req.new_plan_id
+    sub.plan_change_requested_at = now
+    sub.plan_change_mode = req.mode
+    sub.plan_change_effective_at = effective_at
+    sub.updated_at = now
+    db.add(sub)
+
+    # Write event
+    _write_subscription_event(
+        db,
+        subscription_id=subscription_id,
+        event_type="plan_change_requested",
+        actor_user_id=user_id,
+        actor_role=role,
+        from_plan_id=sub.plan_id,
+        to_plan_id=req.new_plan_id,
+        payload={"mode": req.mode, "effective_at": effective_at.isoformat()},
+    )
+
+    # Enqueue outbox
+    _enqueue_outbox(
+        db,
+        topic="SubscriptionLifecycle",
+        event_name="SubscriptionPlanChangeRequested",
+        payload={
+            "subscription_id": str(subscription_id),
+            "user_id": str(sub.user_id),
+            "from_plan_id": str(sub.plan_id),
+            "to_plan_id": str(req.new_plan_id),
+            "mode": req.mode,
+            "effective_at": effective_at.isoformat(),
+        },
+    )
+
+    db.commit()
+    db.refresh(sub)
+
+    # Best-effort notification
+    correlation_id = getattr(request.state, "correlation_id", str(uuid4()))
+    await _notify_subscriber(
+        subscription_id=subscription_id,
+        user_id=sub.user_id,
+        template_key="subscription_plan_change_requested",
+        context={"subscription_id": str(subscription_id), "new_plan_id": str(req.new_plan_id)},
+        correlation_id=correlation_id,
+    )
+
+    return _subscription_to_response(sub)
+
+
+@app.post("/api/v1/subscriptions/{subscription_id}/plan-change/apply", response_model=SubscriptionResponse)
+async def apply_plan_change(
+    subscription_id: UUID,
+    force: bool = Query(default=False),
+    db: Session = Depends(get_db),
+    x_user_role: str | None = Header(default=None),
+    request: Request = None,
+):
+    """Apply a pending plan change. Admin only."""
+    _require_admin(x_user_role)
+
+    sub = db.get(Subscription, subscription_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    if not sub.plan_change_requested_plan_id:
+        raise HTTPException(status_code=400, detail="No pending plan change request")
+
+    now = datetime.now(timezone.utc)
+    if not force and sub.plan_change_effective_at and sub.plan_change_effective_at > now:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Plan change effective date not reached: {sub.plan_change_effective_at}",
+        )
+
+    old_plan_id = sub.plan_id
+    new_plan_id = sub.plan_change_requested_plan_id
+    mode = sub.plan_change_mode or "next_cycle"
+
+    # Apply plan change
+    sub.plan_id = new_plan_id
+    sub.plan_change_requested_plan_id = None
+    sub.plan_change_requested_at = None
+    sub.plan_change_effective_at = None
+    sub.plan_change_mode = None
+    sub.updated_at = now
+    db.add(sub)
+
+    # Write event
+    _write_subscription_event(
+        db,
+        subscription_id=subscription_id,
+        event_type="plan_changed",
+        actor_user_id=None,  # System/admin action
+        actor_role="admin",
+        from_plan_id=old_plan_id,
+        to_plan_id=new_plan_id,
+        payload={"mode": mode, "applied_at": now.isoformat()},
+    )
+
+    # Proration hook (Wave 3): apply proration for immediate plan changes (non-blocking)
+    proration_payload: dict = {
+        "subscription_id": str(subscription_id),
+        "user_id": str(sub.user_id),
+        "from_plan_id": str(old_plan_id),
+        "to_plan_id": str(new_plan_id),
+        "mode": mode,
+        "effective_at": now.isoformat(),
+        "current_period_start": sub.start_at.isoformat(),
+        "current_period_end": (sub.next_renewal_at or sub.renewal_anchor_at).isoformat(),
+    }
+
+    if mode == "immediate" and BILLING_SERVICE_URL and INTERNAL_API_KEY:
+        try:
+            # subscriber_id needed for credit ledger ownership in billing-service
+            row = db.execute(
+                text("SELECT id FROM subscriber.subscribers WHERE user_id = :uid LIMIT 1"),
+                {"uid": str(sub.user_id)},
+            ).fetchone()
+            subscriber_id = str(row[0]) if row else ""
+
+            # plan prices (daily proration)
+            old_price_row = db.execute(
+                text("SELECT price_amount FROM plan.plans WHERE id = :pid LIMIT 1"),
+                {"pid": str(old_plan_id)},
+            ).fetchone()
+            new_price_row = db.execute(
+                text("SELECT price_amount FROM plan.plans WHERE id = :pid LIMIT 1"),
+                {"pid": str(new_plan_id)},
+            ).fetchone()
+            from_price = float(old_price_row[0]) if old_price_row and old_price_row[0] is not None else 0.0
+            to_price = float(new_price_row[0]) if new_price_row and new_price_row[0] is not None else 0.0
+
+            idempotency_key = f"proration:{subscription_id}:{old_plan_id}:{new_plan_id}:{now.date().isoformat()}"
+
+            correlation_id = getattr(request.state, "correlation_id", str(uuid4()))
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                r = await client.post(
+                    f"{BILLING_SERVICE_URL}/api/v1/billing/internal/proration/apply",
+                    headers={
+                        "X-Internal-API-Key": INTERNAL_API_KEY,
+                        "x-correlation-id": correlation_id,
+                    },
+                    json={
+                        "subscriber_id": subscriber_id,
+                        "subscription_id": str(subscription_id),
+                        "from_plan_price": from_price,
+                        "to_plan_price": to_price,
+                        "current_period_start": sub.start_at.isoformat(),
+                        "current_period_end": (sub.next_renewal_at or sub.renewal_anchor_at).isoformat(),
+                        "effective_at": now.isoformat(),
+                        "mode": "immediate",
+                        "currency": "INR",
+                        "create_invoice_if_positive": True,
+                        "create_credit_if_negative": True,
+                        "idempotency_key": idempotency_key,
+                    },
+                )
+            if r.status_code == 200:
+                data = r.json()
+                proration_payload["proration_result"] = data
+                _write_subscription_event(
+                    db,
+                    subscription_id=subscription_id,
+                    event_type="proration_applied",
+                    actor_user_id=None,
+                    actor_role="system",
+                    payload=data if isinstance(data, dict) else {"raw": data},
+                )
+            else:
+                _enqueue_outbox(
+                    db,
+                    topic="SubscriptionLifecycle",
+                    event_name="SubscriptionProrationPending",
+                    payload=proration_payload,
+                )
+        except Exception as e:
+            logger.warning("Proration apply failed (non-blocking): %s", e)
+            _enqueue_outbox(
+                db,
+                topic="SubscriptionLifecycle",
+                event_name="SubscriptionProrationPending",
+                payload=proration_payload,
+            )
+    else:
+        _enqueue_outbox(
+            db,
+            topic="SubscriptionLifecycle",
+            event_name="SubscriptionProrationPending",
+            payload=proration_payload,
+        )
+
+    # Enqueue outbox
+    _enqueue_outbox(
+        db,
+        topic="SubscriptionLifecycle",
+        event_name="SubscriptionPlanChanged",
+        payload={
+            "subscription_id": str(subscription_id),
+            "user_id": str(sub.user_id),
+            "from_plan_id": str(old_plan_id),
+            "to_plan_id": str(new_plan_id),
+        },
+    )
+
+    db.commit()
+    db.refresh(sub)
+
+    # Best-effort notification
+    correlation_id = getattr(request.state, "correlation_id", str(uuid4()))
+    await _notify_subscriber(
+        subscription_id=subscription_id,
+        user_id=sub.user_id,
+        template_key="subscription_plan_changed",
+        context={"subscription_id": str(subscription_id), "new_plan_id": str(new_plan_id)},
+        correlation_id=correlation_id,
+    )
+
+    return _subscription_to_response(sub)
+
+
+@app.post("/api/v1/subscriptions/{subscription_id}/cancel", response_model=SubscriptionResponse)
+async def request_cancellation(
+    subscription_id: UUID,
+    req: CancellationRequest,
+    db: Session = Depends(get_db),
+    x_user_id: str | None = Header(default=None),
+    x_user_role: str | None = Header(default=None),
+    request: Request = None,
+):
+    """Request cancellation with notice. Subscriber can request for own, admin for any."""
+    user_id = _require_user_id(x_user_id)
+    role = str(x_user_role or "")
+
+    sub = db.get(Subscription, subscription_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    # Authorization
+    if role == "subscriber" and sub.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if role not in {"subscriber", "admin"}:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    if sub.status in {"cancelled", "cancellation_requested"}:
+        raise HTTPException(status_code=400, detail="Subscription already cancelled or cancellation requested")
+
+    now = datetime.now(timezone.utc)
+    current_period_end = sub.next_renewal_at or sub.renewal_anchor_at
+
+    # Compute effective_at
+    effective_at = _compute_cancel_effective_at(
+        now=now,
+        current_period_end=current_period_end,
+        effective_mode=req.effective_mode,
+    )
+
+    # Capture old status before update
+    old_status = sub.status
+
+    # Update subscription
+    sub.status = "cancellation_requested"
+    sub.cancel_requested_at = now
+    sub.cancel_effective_at = effective_at
+    sub.cancel_reason = req.reason
+    sub.updated_at = now
+    db.add(sub)
+
+    # Write event
+    _write_subscription_event(
+        db,
+        subscription_id=subscription_id,
+        event_type="cancellation_requested",
+        actor_user_id=user_id,
+        actor_role=role,
+        from_status=old_status,
+        to_status="cancellation_requested",
+        payload={
+            "effective_at": effective_at.isoformat(),
+            "reason": req.reason,
+            "effective_mode": req.effective_mode,
+        },
+    )
+
+    # Enqueue outbox
+    _enqueue_outbox(
+        db,
+        topic="SubscriptionLifecycle",
+        event_name="SubscriptionCancellationRequested",
+        payload={
+            "subscription_id": str(subscription_id),
+            "user_id": str(sub.user_id),
+            "effective_at": effective_at.isoformat(),
+            "reason": req.reason,
+        },
+    )
+
+    db.commit()
+    db.refresh(sub)
+
+    # Best-effort notification
+    correlation_id = getattr(request.state, "correlation_id", str(uuid4()))
+    await _notify_subscriber(
+        subscription_id=subscription_id,
+        user_id=sub.user_id,
+        template_key="subscription_cancellation_requested",
+        context={
+            "subscription_id": str(subscription_id),
+            "effective_at": effective_at.isoformat(),
+            "reason": req.reason,
+        },
+        correlation_id=correlation_id,
+    )
+
+    return _subscription_to_response(sub)
+
+
+@app.post("/api/v1/subscriptions/internal/cancellation/finalize-due", response_model=list[SubscriptionResponse])
+async def finalize_due_cancellations(
+    db: Session = Depends(get_db),
+    x_internal_api_key: str | None = Header(default=None, alias="X-Internal-API-Key"),
+    request: Request = None,
+):
+    """Internal endpoint to finalize cancellations where cancel_effective_at <= now."""
+    _require_internal(x_internal_api_key)
+
+    now = datetime.now(timezone.utc)
+    due_subs = db.execute(
+        select(Subscription).where(
+            Subscription.status == "cancellation_requested",
+            Subscription.cancel_effective_at <= now,
+        )
+    ).scalars().all()
+
+    finalized = []
+    correlation_id = getattr(request.state, "correlation_id", str(uuid4()))
+
+    for sub in due_subs:
+        old_status = sub.status
+        sub.status = "cancelled"
+        sub.updated_at = now
+        db.add(sub)
+
+        # Write event
+        _write_subscription_event(
+            db,
+            subscription_id=sub.id,
+            event_type="cancelled",
+            actor_user_id=None,
+            actor_role="system",
+            from_status=old_status,
+            to_status="cancelled",
+            payload={"finalized_at": now.isoformat()},
+        )
+
+        # Enqueue outbox
+        _enqueue_outbox(
+            db,
+            topic="SubscriptionLifecycle",
+            event_name="SubscriptionCancelled",
+            payload={
+                "subscription_id": str(sub.id),
+                "user_id": str(sub.user_id),
+                "finalized_at": now.isoformat(),
+            },
+        )
+
+        # Best-effort notification
+        await _notify_subscriber(
+            subscription_id=sub.id,
+            user_id=sub.user_id,
+            template_key="subscription_cancelled",
+            context={"subscription_id": str(sub.id)},
+            correlation_id=correlation_id,
+        )
+
+        finalized.append(_subscription_to_response(sub))
+
+    db.commit()
+    return finalized
+
+
+@app.get("/api/v1/subscriptions/{subscription_id}/events", response_model=SubscriptionEventListResponse)
+async def list_subscription_events(
+    subscription_id: UUID,
+    db: Session = Depends(get_db),
+    x_user_id: str | None = Header(default=None),
+    x_user_role: str | None = Header(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+):
+    """List subscription events. Subscriber can view own, admin can view any."""
+    user_id = _require_user_id(x_user_id)
+    role = str(x_user_role or "")
+
+    sub = db.get(Subscription, subscription_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    # Authorization
+    if role == "subscriber" and sub.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if role not in {"subscriber", "admin"}:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    stmt = select(SubscriptionEvent).where(SubscriptionEvent.subscription_id == subscription_id)
+    total = int(db.execute(select(func.count()).select_from(stmt.subquery())).scalar_one())
+    rows = db.execute(
+        stmt.order_by(SubscriptionEvent.created_at.desc()).limit(limit).offset(offset)
+    ).scalars().all()
+
+    return SubscriptionEventListResponse(
+        items=[
+            SubscriptionEventResponse(
+                id=e.id,
+                subscription_id=e.subscription_id,
+                event_type=e.event_type,
+                actor_user_id=e.actor_user_id,
+                actor_role=e.actor_role,
+                from_status=e.from_status,
+                to_status=e.to_status,
+                from_plan_id=e.from_plan_id,
+                to_plan_id=e.to_plan_id,
+                payload=e.payload,
+                created_at=e.created_at,
+            )
+            for e in rows
+        ],
+        total=total,
+    )
+
 
 if __name__ == "__main__":
     import uvicorn

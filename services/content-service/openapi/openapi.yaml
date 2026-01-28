@@ -1,0 +1,20 @@
+openapi: 3.0.3
+info:
+  title: content-service
+  version: 0.1.0
+paths:
+  /api/v1/content/case-studies:
+    get:
+      summary: List published case studies (cached)
+      responses:
+        "200": { description: OK }
+  /api/v1/content/case-studies/{slug}:
+    get:
+      summary: Get published case study by slug (cached)
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: OK }

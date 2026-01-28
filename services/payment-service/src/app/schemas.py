@@ -7,7 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
-PaymentStatus = Literal["created", "paid", "failed"]
+PaymentStatus = Literal["created", "pending", "expired", "paid", "failed"]
 PaymentProvider = Literal["mock", "cashfree", "razorpay"]
 GatewayMode = Literal["sandbox", "live"]
 
@@ -34,6 +34,25 @@ class PaymentIntentResponse(BaseModel):
     updated_at: datetime
 
 
+class GatewayOrderCreateRequest(BaseModel):
+    idempotency_key: Optional[str] = Field(default=None, max_length=128)
+    return_url: Optional[str] = None
+
+
+class GatewayOrderCreateResponse(BaseModel):
+    intent_id: UUID
+    provider: PaymentProvider
+    gateway_order_id: Optional[str] = None
+    payment_session_id: Optional[str] = None
+    pay_url: Optional[str] = None
+    status: PaymentStatus
+
+
+class RetryRequest(BaseModel):
+    idempotency_key: Optional[str] = Field(default=None, max_length=128)
+
+
+
 class MockWebhookRequest(BaseModel):
     intent_id: UUID
     status: PaymentStatus = "paid"
@@ -58,4 +77,11 @@ class PaymentInitiateResponse(BaseModel):
     mode: GatewayMode
     checkout_payload: dict
     note: str
+
+
+class OfflineMarkOrderPaidRequest(BaseModel):
+    order_id: UUID
+    user_id: UUID
+    amount: float = Field(gt=0)
+    reference: Optional[str] = None
 

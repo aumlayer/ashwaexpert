@@ -119,6 +119,24 @@ Authorization: Bearer <admin_token>
 
 Get current subscriber's invoices.
 
+## Testing
+
+### Pytest (unit tests, no Postgres required)
+
+```bash
+cd services/billing-service
+python3 -m pip install -r requirements.txt
+python3 -m pytest -q
+```
+
+### Test env defaults
+
+Unit tests set safe defaults in `tests/conftest.py` to avoid import-time failures:
+- `DATABASE_URL`: dummy local Postgres URL (engine is created but **no connections are made** for unit tests)
+- `INTERNAL_API_KEY`: `dev-internal`
+- `ENVIRONMENT`: `test`
+- `LOG_LEVEL`: `WARNING`
+
 **Headers:**
 ```
 Authorization: Bearer <subscriber_token>

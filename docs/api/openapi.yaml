@@ -1885,3 +1885,144 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/TicketListResponse" }
 
+  /api/v1/billing/credits/me:
+    get:
+      tags: [billing]
+      summary: Get my credit balance + ledger entries (subscriber)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object }
+
+  /api/v1/billing/internal/credits/{subscriber_id}/add:
+    post:
+      tags: [billing]
+      summary: Add credit to subscriber ledger (internal)
+      parameters:
+        - in: path
+          name: subscriber_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "201":
+          description: Created
+
+  /api/v1/billing/internal/credits/{subscriber_id}/apply-to-invoice:
+    post:
+      tags: [billing]
+      summary: Apply credits to an invoice (internal)
+      parameters:
+        - in: path
+          name: subscriber_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/billing/internal/credits/{subscriber_id}/reverse:
+    post:
+      tags: [billing]
+      summary: Reverse a prior debit entry (internal)
+      parameters:
+        - in: path
+          name: subscriber_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "201":
+          description: Created
+
+  /api/v1/billing/internal/proration/estimate:
+    post:
+      tags: [billing]
+      summary: Proration estimate (internal)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/billing/internal/proration/apply:
+    post:
+      tags: [billing]
+      summary: Apply proration (invoice or credit) (internal)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/payments/intents/{intent_id}/create-gateway-order:
+    post:
+      tags: [payments]
+      summary: Create Cashfree gateway order/session for intent
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: intent_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/payments/intents/{intent_id}/retry:
+    post:
+      tags: [payments]
+      summary: Retry Cashfree gateway order/session for intent
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: intent_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/payments/internal/jobs/reconcile-due:
+    post:
+      tags: [payments]
+      summary: Reconcile pending Cashfree intents (internal)
+      responses:
+        "200":
+          description: OK
+

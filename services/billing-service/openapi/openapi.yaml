@@ -1,0 +1,40 @@
+openapi: 3.0.3
+info:
+  title: billing-service
+  version: 0.1.0
+paths:
+  /api/v1/billing/credits/me:
+    get:
+      summary: Get my credit balance and ledger entries
+      responses:
+        "200": { description: OK }
+  /api/v1/billing/internal/credits/{subscriber_id}/add:
+    post:
+      summary: Add credit (internal)
+      parameters:
+        - in: path
+          name: subscriber_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "201": { description: Created }
+  /api/v1/billing/internal/credits/{subscriber_id}/apply-to-invoice:
+    post:
+      summary: Apply credits to invoice (internal)
+      parameters:
+        - in: path
+          name: subscriber_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: OK }
+  /api/v1/billing/internal/proration/estimate:
+    post:
+      summary: Proration estimate (internal)
+      responses:
+        "200": { description: OK }
+  /api/v1/billing/internal/proration/apply:
+    post:
+      summary: Proration apply (internal)
+      responses:
+        "200": { description: OK }

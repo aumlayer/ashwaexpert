@@ -147,6 +147,10 @@ services:
       - LOG_LEVEL=INFO
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - DATABASE_URL=postgresql://${POSTGRES_USER:-ashva}:${POSTGRES_PASSWORD:-ashva123}@postgres:5432/${POSTGRES_DB:-ashva_db}
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8000
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev-internal}
+      - LEAD_INTERNAL_ALERT_EMAIL=${LEAD_INTERNAL_ALERT_EMAIL:-}
+      - LEAD_INTERNAL_ALERT_PHONE=${LEAD_INTERNAL_ALERT_PHONE:-}
     networks:
       - ashva-network
     depends_on:
@@ -264,12 +268,17 @@ services:
       - LOG_LEVEL=INFO
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - DATABASE_URL=postgresql://${POSTGRES_USER:-ashva}:${POSTGRES_PASSWORD:-ashva123}@postgres:5432/${POSTGRES_DB:-ashva_db}
-      - INTERNAL_API_KEY=dev-internal
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev-internal}
+      - MEDIA_SERVICE_URL=http://media-service:8000
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8000
+      - AUTH_SERVICE_URL=http://auth-service:8000
     networks:
       - ashva-network
     depends_on:
       - postgres
       - redis
+      - media-service
+      - auth-service
 
   payment-service:
     build:
@@ -284,7 +293,10 @@ services:
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - DATABASE_URL=postgresql://${POSTGRES_USER:-ashva}:${POSTGRES_PASSWORD:-ashva123}@postgres:5432/${POSTGRES_DB:-ashva_db}
       - SUBSCRIPTION_SERVICE_URL=http://subscription-service:8000
+      - BILLING_SERVICE_URL=http://billing-service:8000
       - INTERNAL_API_KEY=dev-internal
+      - CASHFREE_API_BASE=${CASHFREE_API_BASE:-}
+      - RECONCILE_PENDING_SECONDS=${RECONCILE_PENDING_SECONDS:-900}
     networks:
       - ashva-network
     depends_on:
@@ -303,6 +315,9 @@ services:
       - LOG_LEVEL=INFO
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - DATABASE_URL=postgresql://${POSTGRES_USER:-ashva}:${POSTGRES_PASSWORD:-ashva123}@postgres:5432/${POSTGRES_DB:-ashva_db}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev-internal}
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8000
+      - AUTH_SERVICE_URL=http://auth-service:8000
     networks:
       - ashva-network
     depends_on:
@@ -321,11 +336,15 @@ services:
       - LOG_LEVEL=INFO
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - DATABASE_URL=postgresql://${POSTGRES_USER:-ashva}:${POSTGRES_PASSWORD:-ashva123}@postgres:5432/${POSTGRES_DB:-ashva_db}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev-internal}
+      - TICKET_SERVICE_URL=http://ticket-service:8000
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8000
     networks:
       - ashva-network
     depends_on:
       - postgres
       - redis
+      - ticket-service
 
   media-service:
     build:
@@ -339,11 +358,19 @@ services:
       - LOG_LEVEL=INFO
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - DATABASE_URL=postgresql://${POSTGRES_USER:-ashva}:${POSTGRES_PASSWORD:-ashva123}@postgres:5432/${POSTGRES_DB:-ashva_db}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev-internal}
+      - TICKET_SERVICE_URL=http://ticket-service:8000
+      - AUTH_SERVICE_URL=http://auth-service:8000
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
+      - MINIO_BUCKET=ashva-media
     networks:
       - ashva-network
     depends_on:
       - postgres
       - redis
+      - minio
 
   notification-service:
     build:
@@ -357,6 +384,7 @@ services:
       - LOG_LEVEL=INFO
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - DATABASE_URL=postgresql://${POSTGRES_USER:-ashva}:${POSTGRES_PASSWORD:-ashva123}@postgres:5432/${POSTGRES_DB:-ashva_db}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev-internal}
     networks:
       - ashva-network
     depends_on:
