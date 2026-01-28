@@ -1,23 +1,4 @@
 import pytest
-from fastapi.testclient import TestClient
-
-
-@pytest.fixture(scope="session")
-def client():
-    # pytest.ini sets pythonpath=src, so imports are stable and only happen once.
-    from main import app  # type: ignore
-    from app.deps import get_db  # type: ignore
-
-    class DummyDB:
-        def execute(self, *_args, **_kwargs):
-            # Proration estimate does not need DB; proration apply in these unit tests is not invoked.
-            raise AssertionError("DB access not expected in unit proration tests")
-
-    def override_get_db():
-        yield DummyDB()
-
-    app.dependency_overrides[get_db] = override_get_db
-    return TestClient(app)
 
 
 def test_proration_estimate_known_case(client):
