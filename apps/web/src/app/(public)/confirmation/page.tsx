@@ -3,12 +3,39 @@
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2, Calendar, Phone, MessageCircle, Download } from "lucide-react";
-import { Button, Card, CardContent } from "@/components/ui";
+import { Button, Card, CardContent, EmptyState } from "@/components/ui";
 import { siteConfig } from "@/data/content";
 
 export default function ConfirmationPage() {
   const searchParams = useSearchParams();
-  const orderId = searchParams.get("order") || "ORD123456";
+  const orderId = searchParams.get("order");
+
+  if (!orderId) {
+    return (
+      <section className="py-18 lg:py-24 bg-surface-2 min-h-[calc(100vh-64px)]">
+        <div className="mx-auto max-w-container px-4 sm:px-6 lg:px-8">
+          <div className="max-w-2xl mx-auto">
+            <Card>
+              <CardContent className="pt-6">
+                <EmptyState
+                  icon={CheckCircle2}
+                  title="We couldn't load your confirmation"
+                  message="If you completed payment, your order may still be processing. You can go to your dashboard or chat with support."
+                  primaryCta={{ label: "Go to My Dashboard", href: "/app" }}
+                  secondaryCta={{
+                    label: "Chat on WhatsApp",
+                    href: `https://wa.me/${siteConfig.whatsapp}?text=${encodeURIComponent(
+                      "Hi Ashva Experts! I didn't receive my order confirmation page. Please help."
+                    )}`,
+                  }}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="py-18 lg:py-24 bg-surface-2 min-h-[calc(100vh-64px)]">

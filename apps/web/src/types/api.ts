@@ -114,6 +114,19 @@ export interface Subscription {
   monthlyAmount: number;
   address: Address;
   device?: Device;
+  addons?: Addon[];
+}
+
+export interface Addon {
+  id: string;
+  name: string;
+  description: string;
+  monthlyPrice: number;
+  badge?: string;
+  benefits: string[];
+  isPopular?: boolean;
+  isActive?: boolean;
+  imageUrl?: string;
 }
 
 export interface Address {
@@ -211,4 +224,34 @@ export interface City {
     description: string;
     waterQuality: string;
   };
+}
+
+// ============ Subscriber Profile Types ============
+export interface SubscriberMeResponse {
+  id: string;
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string | null;
+  company_name?: string | null;
+  gst_number?: string | null;
+  pan_number?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SubscriberUpdateRequest {
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  company_name?: string;
+  gst_number?: string;
+  pan_number?: string;
+}
+
+// ============ Referral Types ============
+export interface ReferralGenerateResponse {
+  code: string;
 }

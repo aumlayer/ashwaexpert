@@ -15,72 +15,8 @@ import {
   ChevronRight,
   Download,
 } from "lucide-react";
-import { Button, Skeleton } from "@/components/ui";
+import { Button, Skeleton, EmptyState } from "@/components/ui";
 import { useLeads } from "@/hooks/use-admin";
-
-// Mock data
-const leads = [
-  {
-    id: "1",
-    name: "Priya Sharma",
-    phone: "9876543210",
-    email: "priya@example.com",
-    city: "Bangalore",
-    pincode: "560001",
-    source: "website",
-    status: "new",
-    createdAt: "2024-01-28T10:30:00",
-    notes: "Interested in RO+UV plan",
-  },
-  {
-    id: "2",
-    name: "Rajesh Kumar",
-    phone: "8765432109",
-    email: "rajesh@example.com",
-    city: "Hyderabad",
-    pincode: "500001",
-    source: "whatsapp",
-    status: "contacted",
-    createdAt: "2024-01-28T09:15:00",
-    notes: "Called back, scheduled demo",
-  },
-  {
-    id: "3",
-    name: "Anita Patel",
-    phone: "7654321098",
-    email: "anita@example.com",
-    city: "Mumbai",
-    pincode: "400001",
-    source: "callback",
-    status: "scheduled",
-    createdAt: "2024-01-27T16:45:00",
-    notes: "Installation scheduled for Feb 1",
-  },
-  {
-    id: "4",
-    name: "Vikram Singh",
-    phone: "6543210987",
-    email: "vikram@example.com",
-    city: "Delhi",
-    pincode: "110001",
-    source: "corporate",
-    status: "converted",
-    createdAt: "2024-01-27T14:20:00",
-    notes: "Converted to Advanced RO+UV",
-  },
-  {
-    id: "5",
-    name: "Meera Krishnan",
-    phone: "5432109876",
-    email: "meera@example.com",
-    city: "Chennai",
-    pincode: "600001",
-    source: "website",
-    status: "lost",
-    createdAt: "2024-01-26T11:00:00",
-    notes: "Not interested - already has purifier",
-  },
-];
 
 const statusColors: Record<string, string> = {
   new: "bg-blue-500/20 text-blue-400",
@@ -105,15 +41,13 @@ export default function LeadsPage() {
 
   const leadsQuery = useLeads({ status: statusFilter === "all" ? undefined : statusFilter, page: 1, limit: 50 });
 
-  const leadsForUi = (leadsQuery.data?.data && leadsQuery.data.data.length > 0
-    ? leadsQuery.data.data
-    : leads) as any[];
+  const leadsForUi = leadsQuery.data?.items ?? [];
 
   const filteredLeads = leadsForUi.filter((lead) => {
     const matchesSearch =
       lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.phone.includes(searchQuery) ||
-      lead.city.toLowerCase().includes(searchQuery.toLowerCase());
+      String(lead.phone || "").includes(searchQuery) ||
+      String(lead.city || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || lead.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -203,101 +137,131 @@ export default function LeadsPage() {
         ))}
       </div>
 
+      {leadsQuery.isLoading ? (
+        <div className="bg-[#1E293B] rounded-xl border border-[#334155] overflow-hidden">
+          <div className="p-4">
+            <Skeleton className="h-6 w-44 bg-white/10" />
+            <Skeleton className="h-6 w-72 bg-white/10 mt-3" />
+            <Skeleton className="h-6 w-64 bg-white/10 mt-3" />
+          </div>
+        </div>
+      ) : leadsQuery.isError ? (
+        <EmptyState
+          title="Unable to load leads"
+          message="Please try again. If the issue persists, contact support."
+          primaryCta={{ label: "Retry", onClick: () => leadsQuery.refetch() }}
+        />
+      ) : filteredLeads.length === 0 ? (
+        <EmptyState
+          title="No leads yet"
+          message="When new leads are created from the website, they'll show up here."
+        />
+      ) : null}
+
       {/* Table */}
-      <div className="bg-[#1E293B] rounded-xl border border-[#334155] overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-[#334155]">
-                <th className="text-left py-3 px-4">
-                  <input
-                    type="checkbox"
-                    checked={selectedLeads.length === filteredLeads.length && filteredLeads.length > 0}
-                    onChange={toggleSelectAll}
-                    className="rounded border-gray-500"
-                  />
-                </th>
-                <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Name</th>
-                <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Contact</th>
-                <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Location</th>
-                <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Source</th>
-                <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Status</th>
-                <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Created</th>
-                <th className="text-right py-3 px-4 text-small font-medium text-gray-400">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredLeads.map((lead) => (
-                <tr key={lead.id} className="border-b border-[#334155] hover:bg-[#334155]/50">
-                  <td className="py-4 px-4">
+      {filteredLeads.length > 0 ? (
+        <div className="bg-[#1E293B] rounded-xl border border-[#334155] overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[#334155]">
+                  <th className="text-left py-3 px-4">
                     <input
                       type="checkbox"
-                      checked={selectedLeads.includes(lead.id)}
-                      onChange={() => toggleSelect(lead.id)}
+                      checked={selectedLeads.length === filteredLeads.length && filteredLeads.length > 0}
+                      onChange={toggleSelectAll}
                       className="rounded border-gray-500"
                     />
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#334155] flex items-center justify-center">
-                        <span className="text-small font-medium">{lead.name.charAt(0)}</span>
-                      </div>
-                      <div>
-                        <p className="text-body font-medium">{lead.name}</p>
-                        <p className="text-caption text-gray-400 truncate max-w-[150px]">{lead.notes}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1 text-small text-gray-300">
-                        <Phone className="h-3 w-3" />
-                        {lead.phone}
-                      </div>
-                      <div className="flex items-center gap-1 text-caption text-gray-400">
-                        <Mail className="h-3 w-3" />
-                        {lead.email}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-1 text-small text-gray-300">
-                      <MapPin className="h-3 w-3" />
-                      {lead.city} - {lead.pincode}
-                    </div>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className="text-small text-gray-300">{sourceLabels[lead.source]}</span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className={`inline-block px-2 py-0.5 rounded text-caption font-medium ${statusColors[lead.status]}`}>
-                      {lead.status}
-                    </span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-1 text-small text-gray-400">
-                      <Calendar className="h-3 w-3" />
-                      {new Date(lead.createdAt).toLocaleDateString("en-IN", {
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </div>
-                  </td>
-                  <td className="py-4 px-4 text-right">
-                    <button className="p-2 hover:bg-[#334155] rounded-lg">
-                      <MoreVertical className="h-4 w-4 text-gray-400" />
-                    </button>
-                  </td>
+                  </th>
+                  <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Name</th>
+                  <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Contact</th>
+                  <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Location</th>
+                  <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Source</th>
+                  <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Status</th>
+                  <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Created</th>
+                  <th className="text-right py-3 px-4 text-small font-medium text-gray-400">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filteredLeads.map((lead) => (
+                  <tr key={lead.id} className="border-b border-[#334155] hover:bg-[#334155]/50">
+                    <td className="py-4 px-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedLeads.includes(lead.id)}
+                        onChange={() => toggleSelect(lead.id)}
+                        className="rounded border-gray-500"
+                      />
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-[#334155] flex items-center justify-center">
+                          <span className="text-small font-medium">{lead.name.charAt(0)}</span>
+                        </div>
+                        <div>
+                          <p className="text-body font-medium">{lead.name}</p>
+                          <p className="text-caption text-gray-400 truncate max-w-[150px]">
+                            {lead.message || " "}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 text-gray-400" />
+                        <span className="text-small">{lead.phone || "-"}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Mail className="h-4 w-4 text-gray-400" />
+                        <span className="text-small">{lead.email}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-gray-400" />
+                        <span className="text-small">{lead.city || "-"}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-4">
+                      <span className="text-small text-gray-300">
+                        {sourceLabels[lead.source] ?? lead.source ?? "-"}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-caption font-medium ${
+                          statusColors[lead.status] ?? "bg-gray-500/20 text-gray-400"
+                        }`}
+                      >
+                        {lead.status}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-2 text-small text-gray-300">
+                        <Calendar className="h-4 w-4 text-gray-400" />
+                        {new Date(lead.created_at).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </div>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <button className="p-2 hover:bg-[#334155] rounded-lg">
+                        <MoreVertical className="h-4 w-4 text-gray-400" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
         {/* Pagination */}
         <div className="flex items-center justify-between p-4 border-t border-[#334155]">
           <p className="text-small text-gray-400">
-            Showing {filteredLeads.length} of {leadsForUi.length} leads
+            Showing {filteredLeads.length} of {leadsQuery.data?.total ?? leadsForUi.length} leads
           </p>
           <div className="flex items-center gap-2">
             <button className="p-2 rounded-lg bg-[#334155] text-gray-400 hover:text-white disabled:opacity-50">
@@ -309,7 +273,8 @@ export default function LeadsPage() {
             </button>
           </div>
         </div>
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 }

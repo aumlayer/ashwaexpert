@@ -8,60 +8,96 @@ import { getAuthToken } from "./use-auth";
 export interface Lead {
   id: string;
   name: string;
-  phone: string;
-  email?: string;
-  city: string;
-  pincode: string;
+  email: string;
+  phone?: string | null;
+  company?: string | null;
+  customer_type?: string | null;
+  service_category?: string | null;
+  state?: string | null;
+  city?: string | null;
+  locality?: string | null;
+  preferred_datetime?: string | null;
+  appliance_category?: string | null;
+  appliance_brand?: string | null;
+  appliance_model?: string | null;
+  urgency?: string | null;
+  preferred_contact_method?: string | null;
+  message?: string | null;
   source: string;
-  status: "new" | "contacted" | "scheduled" | "converted" | "lost";
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
+  status: string;
+  priority: string;
+  assigned_to?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AdminSubscription {
   id: string;
-  customerId: string;
-  customerName: string;
-  customerPhone: string;
-  planId: string;
-  planName: string;
-  amount: number;
-  status: "pending" | "active" | "paused" | "cancelled";
-  startDate: string;
-  nextBillingDate?: string;
-  deviceSerial?: string;
-  city: string;
+  user_id: string;
+  plan_id: string;
+  status: string;
+  billing_period: string;
+  auto_renew: boolean;
+  start_at: string;
+  renewal_anchor_at: string;
+  next_renewal_at?: string | null;
+  next_renewal_override_at?: string | null;
+  end_at?: string | null;
+  cancel_requested_at?: string | null;
+  cancel_effective_at?: string | null;
+  cancel_reason?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface AdminPayment {
+export interface AdminInvoice {
   id: string;
-  subscriptionId: string;
-  customerId: string;
-  customerName: string;
-  amount: number;
-  status: "success" | "pending" | "failed" | "refunded";
-  method: string;
-  date: string;
-  invoiceId?: string;
+  invoice_number: string;
+  user_id: string;
+  order_id?: string | null;
+  invoice_type: string;
+  subscription_id?: string | null;
+  status: string;
+  base_amount: number;
+  discount_amount: number;
+  credit_applied_amount: number;
+  paid_amount: number;
+  due_amount: number;
+  amount_before_gst: number;
+  gst_percent: number;
+  gst_amount: number;
+  total_amount: number;
+  due_date?: string | null;
+  pdf_media_id?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ServiceTicket {
   id: string;
-  customerId: string;
-  customerName: string;
-  customerPhone: string;
-  subscriptionId: string;
-  category: "maintenance" | "repair" | "complaint" | "relocation";
+  ticket_number: string;
+  subscriber_id: string;
+  subscription_id?: string | null;
   title: string;
   description: string;
-  status: "open" | "assigned" | "in_progress" | "resolved" | "closed";
-  priority: "low" | "medium" | "high" | "urgent";
-  assigneeId?: string;
-  assigneeName?: string;
-  createdAt: string;
-  resolvedAt?: string;
-  slaBreaching: boolean;
+  ticket_type: string;
+  priority: string;
+  status: string;
+  location_address?: string | null;
+  assigned_technician_id?: string | null;
+  sla_due_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CaseStudyManageItem {
+  id: string;
+  title: string;
+  slug: string;
+  status: string;
+  published_at?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface InventoryItem {
@@ -92,9 +128,48 @@ export function useDashboardStats() {
     queryKey: ["admin", "dashboard"],
     queryFn: async () => {
       const token = getAuthToken();
-      return api.get<DashboardStats>("/admin/dashboard/stats", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const headers = { Authorization: `Bearer ${token}` };
+
+      const [leads, tickets, subs, invoices] = await Promise.all([
+        api.get<{ items: Lead[]; total: number; page: number; limit: number }>("/leads", {
+          headers,
+          params: { page: 1, limit: 50 },
+        }),
+        api.get<{ items: ServiceTicket[]; total: number }>("/tickets/admin", {
+          headers,
+          params: { limit: 50, offset: 0 },
+        }),
+        api.get<{ items: AdminSubscription[]; total: number }>("/subscriptions/admin/subscriptions", {
+          headers,
+          params: { limit: 50, offset: 0 },
+        }),
+        api.get<{ items: AdminInvoice[]; total: number }>("/billing/admin/invoices", {
+          headers,
+          params: { limit: 50, offset: 0 },
+        }),
+      ]);
+
+      const activeSubscriptions = subs.items.filter((s) => s.status === "active").length;
+      const newLeads = leads.items.filter((l) => l.status === "new").length;
+      const openTickets = tickets.items.filter((t) =>
+        ["created", "assigned", "in_progress"].includes(t.status)
+      ).length;
+      const revenue = invoices.items
+        .filter((i) => i.status === "paid")
+        .reduce((sum, i) => sum + (Number.isFinite(i.total_amount) ? i.total_amount : 0), 0);
+
+      const res: DashboardStats = {
+        activeSubscriptions,
+        monthlyRevenue: revenue,
+        newLeads,
+        openTickets,
+        subscriptionGrowth: 0,
+        revenueGrowth: 0,
+        leadGrowth: 0,
+        ticketChange: 0,
+      };
+
+      return res;
     },
     staleTime: 60 * 1000,
   });
@@ -106,7 +181,7 @@ export function useLeads(params?: { status?: string; page?: number; limit?: numb
     queryKey: ["admin", "leads", params],
     queryFn: async () => {
       const token = getAuthToken();
-      return api.get<{ data: Lead[]; total: number }>("/admin/leads", {
+      return api.get<{ items: Lead[]; total: number; page: number; limit: number }>("/leads", {
         headers: { Authorization: `Bearer ${token}` },
         params,
       });
@@ -119,9 +194,9 @@ export function useAdminCreateLead() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: Omit<Lead, "id" | "createdAt" | "updatedAt">) => {
+    mutationFn: async (data: Omit<Lead, "id" | "created_at" | "updated_at">) => {
       const token = getAuthToken();
-      return api.post<Lead>("/admin/leads", data, {
+      return api.post<Lead>("/leads", data, {
         headers: { Authorization: `Bearer ${token}` },
       });
     },
@@ -135,9 +210,9 @@ export function useUpdateLead() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...data }: Partial<Lead> & { id: string }) => {
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const token = getAuthToken();
-      return api.patch<Lead>(`/admin/leads/${id}`, data, {
+      return api.patch<Lead>(`/leads/${id}/status`, { status }, {
         headers: { Authorization: `Bearer ${token}` },
       });
     },
@@ -153,9 +228,12 @@ export function useAdminSubscriptions(params?: { status?: string; page?: number 
     queryKey: ["admin", "subscriptions", params],
     queryFn: async () => {
       const token = getAuthToken();
-      return api.get<{ data: AdminSubscription[]; total: number }>("/admin/subscriptions", {
+      const page = params?.page ?? 1;
+      const limit = 50;
+      const offset = Math.max(0, page - 1) * limit;
+      return api.get<{ items: AdminSubscription[]; total: number }>("/subscriptions/admin/subscriptions", {
         headers: { Authorization: `Bearer ${token}` },
-        params,
+        params: { status: params?.status, limit, offset },
       });
     },
     staleTime: 30 * 1000,
@@ -168,7 +246,7 @@ export function useUpdateSubscriptionStatus() {
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const token = getAuthToken();
-      return api.patch(`/admin/subscriptions/${id}/status`, { status }, {
+      return api.patch(`/subscriptions/${id}`, { status }, {
         headers: { Authorization: `Bearer ${token}` },
       });
     },
@@ -178,50 +256,21 @@ export function useUpdateSubscriptionStatus() {
   });
 }
 
-// Payments
-export function useAdminPayments(params?: { status?: string; page?: number }) {
+// Invoices (Payments module)
+export function useAdminInvoices(params?: { status?: string; page?: number; userId?: string }) {
   return useQuery({
-    queryKey: ["admin", "payments", params],
+    queryKey: ["admin", "invoices", params],
     queryFn: async () => {
       const token = getAuthToken();
-      return api.get<{ data: AdminPayment[]; total: number }>("/admin/payments", {
+      const page = params?.page ?? 1;
+      const limit = 50;
+      const offset = Math.max(0, page - 1) * limit;
+      return api.get<{ items: AdminInvoice[]; total: number }>("/billing/admin/invoices", {
         headers: { Authorization: `Bearer ${token}` },
-        params,
+        params: { status: params?.status, user_id: params?.userId, limit, offset },
       });
     },
     staleTime: 30 * 1000,
-  });
-}
-
-export function useRetryAdminPayment() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (paymentId: string) => {
-      const token = getAuthToken();
-      return api.post(`/admin/payments/${paymentId}/retry`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "payments"] });
-    },
-  });
-}
-
-export function useRefundPayment() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ paymentId, reason }: { paymentId: string; reason: string }) => {
-      const token = getAuthToken();
-      return api.post(`/admin/payments/${paymentId}/refund`, { reason }, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "payments"] });
-    },
   });
 }
 
@@ -231,9 +280,12 @@ export function useAdminTickets(params?: { status?: string; priority?: string; p
     queryKey: ["admin", "tickets", params],
     queryFn: async () => {
       const token = getAuthToken();
-      return api.get<{ data: ServiceTicket[]; total: number }>("/admin/tickets", {
+      const page = params?.page ?? 1;
+      const limit = 50;
+      const offset = Math.max(0, page - 1) * limit;
+      return api.get<{ items: ServiceTicket[]; total: number }>("/tickets/admin", {
         headers: { Authorization: `Bearer ${token}` },
-        params,
+        params: { status: params?.status, priority: params?.priority, limit, offset },
       });
     },
     staleTime: 30 * 1000,
@@ -260,9 +312,17 @@ export function useUpdateTicketStatus() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ ticketId, status, resolution }: { ticketId: string; status: string; resolution?: string }) => {
+    mutationFn: async ({
+      ticketId,
+      status,
+      completionNotes,
+    }: {
+      ticketId: string;
+      status: string;
+      completionNotes?: string;
+    }) => {
       const token = getAuthToken();
-      return api.patch(`/admin/tickets/${ticketId}/status`, { status, resolution }, {
+      return api.patch(`/tickets/${ticketId}`, { status, completion_notes: completionNotes }, {
         headers: { Authorization: `Bearer ${token}` },
       });
     },
@@ -299,6 +359,69 @@ export function useUpdateInventory() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "inventory"] });
+    },
+  });
+}
+
+// Case Studies (Content)
+export function useAdminCaseStudies(params?: { status?: string; page?: number; search?: string }) {
+  return useQuery({
+    queryKey: ["admin", "case-studies", params],
+    queryFn: async () => {
+      const token = getAuthToken();
+      return api.get<{ items: CaseStudyManageItem[]; total: number; page: number; limit: number }>(
+        "/content/manage/case-studies",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { status: params?.status, page: params?.page ?? 1, limit: 50, search: params?.search },
+        }
+      );
+    },
+    staleTime: 30 * 1000,
+  });
+}
+
+export function usePublishCaseStudy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const token = getAuthToken();
+      return api.post(`/content/case-studies/${id}/publish`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "case-studies"] });
+    },
+  });
+}
+
+export function useUnpublishCaseStudy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const token = getAuthToken();
+      return api.post(`/content/case-studies/${id}/unpublish`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "case-studies"] });
+    },
+  });
+}
+
+export function useDeleteCaseStudy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const token = getAuthToken();
+      return api.delete(`/content/case-studies/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "case-studies"] });
     },
   });
 }

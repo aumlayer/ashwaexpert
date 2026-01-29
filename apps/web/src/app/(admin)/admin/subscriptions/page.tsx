@@ -15,67 +15,8 @@ import {
   XCircle,
   Clock,
 } from "lucide-react";
-import { Button, Skeleton } from "@/components/ui";
+import { Button, EmptyState, Skeleton } from "@/components/ui";
 import { useAdminSubscriptions } from "@/hooks/use-admin";
-
-// Mock data
-const subscriptions = [
-  {
-    id: "SUB-001",
-    customer: { name: "Priya Sharma", phone: "9876543210", email: "priya@example.com" },
-    plan: "Advanced RO+UV",
-    amount: 549,
-    status: "active",
-    startDate: "2024-01-10",
-    nextBilling: "2024-02-10",
-    city: "Bangalore",
-    device: "ASH-2024-00123",
-  },
-  {
-    id: "SUB-002",
-    customer: { name: "Rajesh Kumar", phone: "8765432109", email: "rajesh@example.com" },
-    plan: "Premium Copper+",
-    amount: 749,
-    status: "active",
-    startDate: "2024-01-05",
-    nextBilling: "2024-02-05",
-    city: "Hyderabad",
-    device: "ASH-2024-00098",
-  },
-  {
-    id: "SUB-003",
-    customer: { name: "Anita Patel", phone: "7654321098", email: "anita@example.com" },
-    plan: "Basic RO",
-    amount: 399,
-    status: "pending",
-    startDate: "2024-01-28",
-    nextBilling: "-",
-    city: "Mumbai",
-    device: "-",
-  },
-  {
-    id: "SUB-004",
-    customer: { name: "Vikram Singh", phone: "6543210987", email: "vikram@example.com" },
-    plan: "Advanced RO+UV",
-    amount: 549,
-    status: "paused",
-    startDate: "2023-12-15",
-    nextBilling: "-",
-    city: "Delhi",
-    device: "ASH-2023-00456",
-  },
-  {
-    id: "SUB-005",
-    customer: { name: "Meera Krishnan", phone: "5432109876", email: "meera@example.com" },
-    plan: "Alkaline Pro",
-    amount: 649,
-    status: "cancelled",
-    startDate: "2023-11-01",
-    nextBilling: "-",
-    city: "Chennai",
-    device: "ASH-2023-00321",
-  },
-];
 
 const statusConfig: Record<string, { icon: typeof CheckCircle2; color: string; bg: string }> = {
   active: { icon: CheckCircle2, color: "text-green-400", bg: "bg-green-500/20" },
@@ -90,25 +31,13 @@ export default function SubscriptionsPage() {
 
   const subsQuery = useAdminSubscriptions({ status: statusFilter === "all" ? undefined : statusFilter, page: 1 });
 
-  const subsForUi = (subsQuery.data?.data && subsQuery.data.data.length > 0
-    ? subsQuery.data.data.map((s) => ({
-        id: s.id,
-        customer: { name: s.customerName, phone: s.customerPhone, email: "" },
-        plan: s.planName,
-        amount: s.amount,
-        status: s.status,
-        startDate: s.startDate,
-        nextBilling: s.nextBillingDate || "-",
-        city: s.city,
-        device: s.deviceSerial || "-",
-      }))
-    : subscriptions) as any[];
+  const subsForUi = subsQuery.data?.items ?? [];
 
   const filteredSubs = subsForUi.filter((sub) => {
     const matchesSearch =
-      sub.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      sub.customer.phone.includes(searchQuery) ||
-      sub.id.toLowerCase().includes(searchQuery.toLowerCase());
+      sub.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      sub.user_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      sub.plan_id.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || sub.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -181,90 +110,105 @@ export default function SubscriptionsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-[#1E293B] rounded-xl border border-[#334155] overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-[#334155]">
-                <th className="text-left py-3 px-4 text-small font-medium text-gray-400">ID</th>
-                <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Customer</th>
-                <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Plan</th>
-                <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Amount</th>
-                <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Status</th>
-                <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Next Billing</th>
-                <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Device</th>
-                <th className="text-right py-3 px-4 text-small font-medium text-gray-400">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredSubs.map((sub) => {
-                const status = statusConfig[sub.status];
-                return (
-                  <tr key={sub.id} className="border-b border-[#334155] hover:bg-[#334155]/50">
-                    <td className="py-4 px-4">
-                      <span className="text-small font-mono text-primary">{sub.id}</span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div>
-                        <p className="text-body font-medium">{sub.customer.name}</p>
-                        <p className="text-caption text-gray-400">{sub.customer.phone}</p>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
-                        <Droplets className="h-4 w-4 text-primary" />
-                        <span className="text-small">{sub.plan}</span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="text-body font-semibold">₹{sub.amount}</span>
-                      <span className="text-caption text-gray-400">/mo</span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded ${status.bg}`}>
-                        <status.icon className={`h-3 w-3 ${status.color}`} />
-                        <span className={`text-caption font-medium ${status.color}`}>
-                          {sub.status}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-1 text-small text-gray-300">
-                        <Calendar className="h-3 w-3" />
-                        {sub.nextBilling}
-                      </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="text-small font-mono text-gray-400">{sub.device}</span>
-                    </td>
-                    <td className="py-4 px-4 text-right">
-                      <button className="p-2 hover:bg-[#334155] rounded-lg">
-                        <MoreVertical className="h-4 w-4 text-gray-400" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        <div className="flex items-center justify-between p-4 border-t border-[#334155]">
-          <p className="text-small text-gray-400">
-            Showing {filteredSubs.length} of {subsForUi.length} subscriptions
-          </p>
-          <div className="flex items-center gap-2">
-            <button className="p-2 rounded-lg bg-[#334155] text-gray-400 hover:text-white">
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span className="px-3 py-1 text-small text-white">1</span>
-            <button className="p-2 rounded-lg bg-[#334155] text-gray-400 hover:text-white">
-              <ChevronRight className="h-4 w-4" />
-            </button>
+      {subsQuery.isLoading ? (
+        <div className="bg-[#1E293B] rounded-xl border border-[#334155] overflow-hidden">
+          <div className="p-4">
+            <Skeleton className="h-6 w-48 bg-white/10" />
+            <Skeleton className="h-6 w-80 bg-white/10 mt-3" />
+            <Skeleton className="h-6 w-72 bg-white/10 mt-3" />
           </div>
         </div>
-      </div>
+      ) : subsQuery.isError ? (
+        <EmptyState
+          title="Unable to load subscriptions"
+          message="Please try again. If the issue persists, contact support."
+          primaryCta={{ label: "Retry", onClick: () => subsQuery.refetch() }}
+        />
+      ) : filteredSubs.length === 0 ? (
+        <EmptyState
+          title="No subscriptions found"
+          message="No subscriptions match your filters."
+        />
+      ) : (
+        <div className="bg-[#1E293B] rounded-xl border border-[#334155] overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[#334155]">
+                  <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Subscription</th>
+                  <th className="text-left py-3 px-4 text-small font-medium text-gray-400">User</th>
+                  <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Plan</th>
+                  <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Status</th>
+                  <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Billing</th>
+                  <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Next Renewal</th>
+                  <th className="text-right py-3 px-4 text-small font-medium text-gray-400">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredSubs.map((sub) => {
+                  const status = statusConfig[sub.status] ?? statusConfig.active;
+                  return (
+                    <tr key={sub.id} className="border-b border-[#334155] hover:bg-[#334155]/50">
+                      <td className="py-4 px-4">
+                        <span className="text-small font-mono text-primary">{sub.id}</span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-small font-mono text-gray-300">{sub.user_id}</p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-small font-mono text-gray-300">{sub.plan_id}</p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded ${status.bg}`}>
+                          <status.icon className={`h-3 w-3 ${status.color}`} />
+                          <span className={`text-caption font-medium ${status.color}`}>
+                            {sub.status}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className="text-small text-gray-300">{sub.billing_period}</span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-1 text-small text-gray-300">
+                          <Calendar className="h-3 w-3" />
+                          {sub.next_renewal_at
+                            ? new Date(sub.next_renewal_at).toLocaleDateString("en-IN", {
+                                day: "numeric",
+                                month: "short",
+                              })
+                            : "-"}
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <button className="p-2 hover:bg-[#334155] rounded-lg">
+                          <MoreVertical className="h-4 w-4 text-gray-400" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between p-4 border-t border-[#334155]">
+            <p className="text-small text-gray-400">
+              Showing {filteredSubs.length} of {subsQuery.data?.total ?? subsForUi.length} subscriptions
+            </p>
+            <div className="flex items-center gap-2">
+              <button className="p-2 rounded-lg bg-[#334155] text-gray-400 hover:text-white">
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="px-3 py-1 text-small text-white">1</span>
+              <button className="p-2 rounded-lg bg-[#334155] text-gray-400 hover:text-white">
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

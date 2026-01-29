@@ -83,14 +83,17 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      <Card className="bg-gray-800/50 border-gray-700">
-        <CardContent className="pt-6 flex items-center justify-between gap-3">
-          <div className="text-small text-gray-300">
-            Analytics is currently showing sample data. API wiring for this module is pending.
+      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+        <div className="flex items-center gap-3">
+          <Target className="h-5 w-5 text-yellow-500" />
+          <div>
+            <p className="text-body font-medium text-yellow-400">Analytics API not available</p>
+            <p className="text-small text-yellow-300">
+              Funnel, cohort, and campaign analytics require backend endpoints that are not implemented yet. Showing sample data for UI preview.
+            </p>
           </div>
-          <Badge variant="default">Sample</Badge>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

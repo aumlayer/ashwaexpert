@@ -15,7 +15,7 @@ import {
 import { siteConfig } from "@/data/content";
 
 // City data - would come from CMS/API in production
-const cityData: Record<string, {
+export const cityData: Record<string, {
   name: string;
   state: string;
   heroImage: string;

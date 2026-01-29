@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Calendar, Clock, MapPin, CreditCard, Shield, Check } from "lucide-react";
+import { Calendar, Clock, MapPin, CreditCard, Shield, Check, MessageCircle } from "lucide-react";
 import { Button, Input, Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui";
 import { track } from "@/utils/analytics";
 import { useCheckout, usePlans } from "@/hooks/use-api";
-import { plans as plansData } from "@/data/content";
+import { plans as plansData, siteConfig } from "@/data/content";
 import { ExitIntentCapture } from "@/components/funnel/exit-intent-capture";
+import { readFunnelLocation } from "@/utils/funnel-location";
 
 const timeSlots = [
   { id: "morning", label: "Morning", time: "9 AM - 12 PM" },
@@ -21,7 +22,8 @@ export default function CheckoutPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const planId = searchParams.get("plan") || "advanced-ro-uv";
-  const pincode = searchParams.get("pincode") || "";
+  const funnelLocation = readFunnelLocation(searchParams);
+  const pincode = funnelLocation.pincode || "";
 
   const tenureMonthsRaw = Number(searchParams.get("tenure") || "1");
   const tenureMonths = Number.isFinite(tenureMonthsRaw) && tenureMonthsRaw > 0 ? tenureMonthsRaw : 1;
@@ -47,7 +49,7 @@ export default function CheckoutPage() {
     email: "",
     address: "",
     pincode: pincode,
-    city: "",
+    city: funnelLocation.city || "",
     installDate: "",
     timeSlot: "",
   });
@@ -135,7 +137,7 @@ export default function CheckoutPage() {
         },
         address: {
           line1: formData.address,
-          city: formData.city || "",
+          city: formData.city || funnelLocation.city || "",
           state: "",
           pincode: formData.pincode,
         },
@@ -161,7 +163,18 @@ export default function CheckoutPage() {
       router.push(`/confirmation?order=${encodeURIComponent(res.orderId)}`);
     } catch (err) {
       track("payment_failed", { plan_id: planId });
-      setSubmitError("Payment couldn't be initiated. Please try again in a moment.");
+      const message =
+        err && typeof err === "object" && "body" in err
+          ? (() => {
+              const body = (err as { body?: unknown }).body;
+              if (body && typeof body === "object" && "message" in body && typeof (body as any).message === "string") {
+                return (body as any).message as string;
+              }
+              return null;
+            })()
+          : null;
+
+      setSubmitError(message || "Payment couldn't be initiated. Please try again in a moment.");
     }
   };
 
@@ -373,9 +386,31 @@ export default function CheckoutPage() {
                     </p>
                   </div>
 
-                  {submitError && (
-                    <p className="text-small text-error">{submitError}</p>
-                  )}
+                  {submitError ? (
+                    <div className="rounded-card border border-error/20 bg-error/5 p-4">
+                      <p className="text-small text-error">{submitError}</p>
+                      <div className="mt-4 flex flex-col sm:flex-row gap-3">
+                        <Button
+                          className="flex-1"
+                          onClick={handlePayment}
+                          isLoading={checkoutMutation.isPending}
+                        >
+                          Retry Payment
+                        </Button>
+                        <a
+                          href={`https://wa.me/${siteConfig.whatsapp}?text=${encodeURIComponent(
+                            `Hi Ashva Experts! My payment failed during checkout for plan ${planId}. Please help.`
+                          )}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex-1 inline-flex items-center justify-center h-11 px-6 rounded-btn border-2 border-primary text-primary bg-transparent hover:bg-primary/5 active:scale-[0.98] font-semibold transition-all duration-standard ease-out-expo"
+                        >
+                          <MessageCircle className="h-4 w-4 mr-2" />
+                          Chat on WhatsApp
+                        </a>
+                      </div>
+                    </div>
+                  ) : null}
 
                   <div className="flex gap-4">
                     <Button variant="outline" onClick={() => setStep("schedule")}>

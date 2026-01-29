@@ -13,51 +13,10 @@ import {
   ChevronRight,
   Filter,
 } from "lucide-react";
-import { Button, Card, CardContent, CardHeader, CardTitle, Badge, Skeleton } from "@/components/ui";
+import { Button, Card, CardContent, CardHeader, CardTitle, Badge, Skeleton, EmptyState } from "@/components/ui";
 import { track } from "@/utils/analytics";
 import { useCreateServiceTicket, useMaintenanceSchedule, useServiceTickets } from "@/hooks/use-service";
 import { siteConfig } from "@/data/content";
-
-// Mock service data - will be replaced with API
-const serviceTickets = [
-  {
-    id: "TKT-001",
-    category: "maintenance",
-    title: "Quarterly Maintenance",
-    status: "scheduled" as const,
-    createdAt: "2024-01-20",
-    scheduledDate: "2024-02-20",
-    scheduledTime: "10:00 AM - 12:00 PM",
-    description: "Regular quarterly maintenance visit",
-  },
-  {
-    id: "TKT-002",
-    category: "repair",
-    title: "Water Flow Issue",
-    status: "resolved" as const,
-    createdAt: "2024-01-10",
-    resolvedAt: "2024-01-11",
-    description: "Low water flow from purifier",
-    resolution: "Replaced pre-filter and cleaned membrane",
-  },
-  {
-    id: "TKT-003",
-    category: "complaint",
-    title: "Taste Issue",
-    status: "resolved" as const,
-    createdAt: "2023-12-15",
-    resolvedAt: "2023-12-16",
-    description: "Water has slight metallic taste",
-    resolution: "Replaced carbon filter",
-  },
-];
-
-const upcomingMaintenance = {
-  date: "Feb 20, 2024",
-  time: "10:00 AM - 12:00 PM",
-  type: "Quarterly Maintenance",
-  technician: "Rajesh Kumar",
-};
 
 const categories = [
   { id: "maintenance", label: "Maintenance", icon: Wrench },
@@ -146,13 +105,11 @@ export default function ServicePage() {
         date: maintenanceQuery.data.nextVisit.date,
         time: maintenanceQuery.data.nextVisit.timeSlot,
         type: maintenanceQuery.data.nextVisit.type,
-        technician: maintenanceQuery.data.nextVisit.technician || upcomingMaintenance.technician,
+        technician: maintenanceQuery.data.nextVisit.technician || "",
       }
-    : upcomingMaintenance;
+    : null;
 
-  const ticketsForUi: TicketForUi[] = (
-    ticketsQuery.data && ticketsQuery.data.length > 0 ? ticketsQuery.data : serviceTickets
-  ).map((t: any): TicketForUi => {
+  const ticketsForUi: TicketForUi[] = (ticketsQuery.data ?? []).map((t: any): TicketForUi => {
     if ("scheduledDate" in t) {
       return {
         id: t.id,
@@ -224,7 +181,7 @@ export default function ServicePage() {
   return (
     <div className="space-y-6">
       {/* Upcoming Maintenance Banner */}
-      {upcoming && (
+      {upcoming ? (
         <Card className="bg-gradient-to-r from-accent/10 to-primary/10 border-accent/20">
           <CardContent className="py-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -260,7 +217,7 @@ export default function ServicePage() {
             </div>
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
       {/* Quick Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -408,14 +365,18 @@ export default function ServicePage() {
         ) : filteredTickets.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
-              <Wrench className="h-12 w-12 text-foreground-muted mx-auto mb-4" />
-              <p className="text-body font-medium text-foreground">No service requests</p>
-              <p className="text-small text-foreground-muted mt-1">
-                You haven't raised any service requests yet.
-              </p>
-              <Button className="mt-4" onClick={handleCreateTicket}>
-                Create Request
-              </Button>
+              <EmptyState
+                icon={Wrench}
+                title="No service requests"
+                message="You haven't raised any service requests yet."
+                primaryCta={{ label: "Create Request", onClick: handleCreateTicket }}
+                secondaryCta={{
+                  label: "Chat on WhatsApp",
+                  href: `https://wa.me/${siteConfig.whatsapp}?text=${encodeURIComponent(
+                    "Hi Ashva Experts! I need help with a service request."
+                  )}`,
+                }}
+              />
             </CardContent>
           </Card>
         ) : (

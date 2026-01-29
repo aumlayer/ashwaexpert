@@ -51,9 +51,15 @@ export default function SettingsPage() {
         </Button>
       </div>
 
-      <div className="bg-[#1E293B] border border-[#334155] rounded-xl p-4">
-        <div className="text-small text-gray-300">
-          Settings are currently not persisted. This screen is using sample values until admin settings APIs are available.
+      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+        <div className="flex items-center gap-3">
+          <Settings className="h-5 w-5 text-yellow-500" />
+          <div>
+            <p className="text-body font-medium text-yellow-400">Settings persistence not available</p>
+            <p className="text-small text-yellow-300">
+              Admin settings API is not implemented. Changes made here will not be saved.
+            </p>
+          </div>
         </div>
       </div>
 

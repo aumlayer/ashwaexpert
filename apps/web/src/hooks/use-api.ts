@@ -5,6 +5,7 @@ import { api } from "@/utils/api";
 import type {
   AvailabilityCheckRequest,
   AvailabilityCheckResponse,
+  Addon,
   Plan,
   CreateLeadRequest,
   Lead,
@@ -12,7 +13,11 @@ import type {
   CheckoutResponse,
   Testimonial,
   FAQ,
+  ReferralGenerateResponse,
+  SubscriberMeResponse,
+  SubscriberUpdateRequest,
 } from "@/types/api";
+import { getAuthToken } from "@/hooks/use-auth";
 
 // ============ Availability Hooks ============
 export function useCheckAvailability() {
@@ -20,6 +25,22 @@ export function useCheckAvailability() {
     mutationFn: async (data: AvailabilityCheckRequest) => {
       return api.post<AvailabilityCheckResponse>("/availability/check", data);
     },
+  });
+}
+
+// ============ Referrals Hooks (Portal) ==========
+export function useReferralCode() {
+  return useQuery({
+    queryKey: ["referral_code"],
+    queryFn: async () => {
+      const token = getAuthToken();
+      if (!token) return null;
+      return api.post<ReferralGenerateResponse>("/coupons/referrals/generate", undefined, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
   });
 }
 
@@ -67,6 +88,68 @@ export function useCheckout() {
   });
 }
 
+// ============ Add-ons Hooks (Portal) ==========
+export function useAddons() {
+  return useQuery({
+    queryKey: ["addons"],
+    queryFn: async () => {
+      const token = getAuthToken();
+      if (!token) return [];
+      return api.get<Addon[]>("/addons", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+}
+
+export function useAddSubscriptionAddon(subscriptionId?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { addonId: string }) => {
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error("Not authenticated");
+      }
+      if (!subscriptionId) {
+        throw new Error("Missing subscription id");
+      }
+      return api.post(`/subscriptions/${subscriptionId}/addons`, data, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["subscription"] });
+      queryClient.invalidateQueries({ queryKey: ["addons"] });
+    },
+  });
+}
+
+export function useRemoveSubscriptionAddon(subscriptionId?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { addonId: string }) => {
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error("Not authenticated");
+      }
+      if (!subscriptionId) {
+        throw new Error("Missing subscription id");
+      }
+      return api.delete(`/subscriptions/${subscriptionId}/addons/${encodeURIComponent(data.addonId)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["subscription"] });
+      queryClient.invalidateQueries({ queryKey: ["addons"] });
+    },
+  });
+}
+
 // ============ Testimonials Hooks ============
 export function useTestimonials(city?: string) {
   return useQuery({
@@ -86,5 +169,40 @@ export function useFAQs(category?: string) {
       return api.get<FAQ[]>("/faqs", { params: category ? { category } : undefined });
     },
     staleTime: 30 * 60 * 1000, // 30 minutes
+  });
+}
+
+// ============ Subscriber Profile Hooks (Portal) ==========
+export function useSubscriberMe() {
+  return useQuery({
+    queryKey: ["subscriber_me"],
+    queryFn: async () => {
+      const token = getAuthToken();
+      if (!token) return null;
+      return api.get<SubscriberMeResponse>("/subscribers/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+}
+
+export function useUpdateSubscriberMe() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: SubscriberUpdateRequest) => {
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error("Not authenticated");
+      }
+      return api.put<SubscriberMeResponse>("/subscribers/me", data, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["subscriber_me"] });
+    },
   });
 }

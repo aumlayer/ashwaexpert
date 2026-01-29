@@ -6,13 +6,15 @@ import { CheckCircle2, XCircle, MapPin, ArrowRight } from "lucide-react";
 import { Button, Input, Card, CardContent } from "@/components/ui";
 import { track } from "@/utils/analytics";
 import { useCheckAvailability, useCreateLead } from "@/hooks/use-api";
+import { buildFunnelLocationQuery, readFunnelLocation } from "@/utils/funnel-location";
 
 type AvailabilityStatus = "idle" | "checking" | "available" | "unavailable";
 
 export default function CheckAvailabilityPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const initialPincode = searchParams.get("pincode") || "";
+  const initialLocation = readFunnelLocation(searchParams);
+  const initialPincode = initialLocation.pincode || "";
 
   const checkAvailabilityMutation = useCheckAvailability();
   const createLeadMutation = useCreateLead();
@@ -20,6 +22,7 @@ export default function CheckAvailabilityPage() {
   const [pincode, setPincode] = useState(initialPincode);
   const [status, setStatus] = useState<AvailabilityStatus>("idle");
   const [city, setCity] = useState("");
+  const [locality, setLocality] = useState<string | undefined>(initialLocation.locality);
   const [apiError, setApiError] = useState<string | null>(null);
   const [notifyPhone, setNotifyPhone] = useState("");
   const [notifyEmail, setNotifyEmail] = useState("");
@@ -43,10 +46,12 @@ export default function CheckAvailabilityPage() {
       if (res.available) {
         setStatus("available");
         setCity(res.city);
+        setLocality(res.locality || undefined);
         track("pincode_check_success", { pincode: code, available: true });
       } else {
         setStatus("unavailable");
         setCity(res.city || "");
+        setLocality(res.locality || undefined);
         track("pincode_check_success", { pincode: code, available: false });
       }
     } catch (err) {
@@ -84,7 +89,13 @@ export default function CheckAvailabilityPage() {
   };
 
   const handleContinue = () => {
-    router.push(`/plans?pincode=${pincode}`);
+    router.push(
+      `/plans${buildFunnelLocationQuery({
+        pincode,
+        city: city || undefined,
+        locality,
+      })}`
+    );
   };
 
   return (

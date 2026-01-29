@@ -11,10 +11,12 @@ import {
 } from "lucide-react";
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from "@/components/ui";
 import { track } from "@/utils/analytics";
+import { useRequestRelocation } from "@/hooks/use-subscription";
 
 export default function RelocationPage() {
   const [step, setStep] = useState<"form" | "schedule" | "success">("form");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     newAddress: "",
     newPincode: "",
@@ -24,6 +26,8 @@ export default function RelocationPage() {
     preferredSlot: "",
   });
 
+  const requestRelocationMutation = useRequestRelocation();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (step === "form") {
@@ -32,13 +36,26 @@ export default function RelocationPage() {
     }
 
     setIsSubmitting(true);
+    setSubmitError(null);
     track("service_request_started", { type: "relocation" });
-    
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    setIsSubmitting(false);
-    setStep("success");
+
+    try {
+      await requestRelocationMutation.mutateAsync({
+        newAddress: {
+          line1: formData.newAddress,
+          line2: undefined,
+          city: formData.newCity,
+          state: "",
+          pincode: formData.newPincode,
+        },
+        preferredDate: formData.preferredDate,
+      });
+      setStep("success");
+    } catch {
+      setSubmitError("Couldn't submit your relocation request right now. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getAvailableDates = () => {
@@ -262,6 +279,10 @@ export default function RelocationPage() {
                     Submit Request
                   </Button>
                 </div>
+
+                {submitError ? (
+                  <p className="text-small text-error">{submitError}</p>
+                ) : null}
               </>
             )}
           </form>

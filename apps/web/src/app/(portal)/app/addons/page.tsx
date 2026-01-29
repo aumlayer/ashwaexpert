@@ -2,92 +2,128 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Check, Plus, Sparkles, Shield, Droplets, Thermometer } from "lucide-react";
-import { Button, Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui";
+import Link from "next/link";
+import { Check, Plus, Shield } from "lucide-react";
+import { Button, Card, CardContent, CardHeader, CardTitle, Badge, EmptyState, Skeleton } from "@/components/ui";
 import { track } from "@/utils/analytics";
-
-const addons = [
-  {
-    id: "copper-cartridge",
-    name: "Copper Cartridge",
-    description: "Add copper-infused water benefits to your existing purifier. Boosts immunity and aids digestion.",
-    price: 149,
-    priceType: "month",
-    icon: Sparkles,
-    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
-    benefits: [
-      "Antimicrobial properties",
-      "Aids digestion",
-      "Boosts immunity",
-      "Improves skin health",
-    ],
-    isPopular: true,
-  },
-  {
-    id: "alkaline-filter",
-    name: "Alkaline Filter",
-    description: "Enhance your water with alkaline minerals for better hydration and pH balance.",
-    price: 99,
-    priceType: "month",
-    icon: Droplets,
-    image: "https://images.unsplash.com/photo-1559839914-17aae19cec71?w=400&h=300&fit=crop",
-    benefits: [
-      "pH balance (8-9.5)",
-      "Better hydration",
-      "Antioxidant properties",
-      "Mineral enrichment",
-    ],
-    isPopular: false,
-  },
-  {
-    id: "hot-water",
-    name: "Hot Water Dispenser",
-    description: "Get instant hot water for tea, coffee, and cooking. Temperature adjustable.",
-    price: 199,
-    priceType: "month",
-    icon: Thermometer,
-    image: "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=400&h=300&fit=crop",
-    benefits: [
-      "Instant hot water",
-      "Temperature control",
-      "Energy efficient",
-      "Child lock safety",
-    ],
-    isPopular: false,
-  },
-  {
-    id: "extended-warranty",
-    name: "Extended Warranty",
-    description: "Extend your device warranty by an additional year with priority support.",
-    price: 49,
-    priceType: "month",
-    icon: Shield,
-    image: "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=400&h=300&fit=crop",
-    benefits: [
-      "Extended coverage",
-      "Priority support",
-      "Free replacements",
-      "No deductibles",
-    ],
-    isPopular: false,
-  },
-];
-
-const activeAddons = ["copper-cartridge"];
+import { siteConfig } from "@/data/content";
+import { ApiError } from "@/utils/api";
+import { useAddons, useAddSubscriptionAddon, useRemoveSubscriptionAddon } from "@/hooks/use-api";
+import { useSubscription } from "@/hooks/use-subscription";
 
 export default function AddonsPage() {
   const [selectedAddon, setSelectedAddon] = useState<string | null>(null);
+  const [pendingRemoveAddonId, setPendingRemoveAddonId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const handleAddAddon = (addonId: string) => {
+  const subscriptionQuery = useSubscription();
+  const subscription = subscriptionQuery.data;
+
+  const addonsQuery = useAddons();
+  const addAddonMutation = useAddSubscriptionAddon(subscription?.id);
+  const removeAddonMutation = useRemoveSubscriptionAddon(subscription?.id);
+
+  const addonsApiError = addonsQuery.error instanceof ApiError ? addonsQuery.error : null;
+  const isNotImplemented = addonsApiError?.status === 404;
+
+  const addons = addonsQuery.data || [];
+  const activeAddonIds = new Set((subscription?.addons || []).map((a) => a.id));
+
+  const handleAddAddon = async (addonId: string) => {
+    setActionError(null);
     track("addon_added", { addon_id: addonId });
-    // TODO: Implement add addon API call
-    alert(`Adding ${addonId} to your subscription`);
+    try {
+      await addAddonMutation.mutateAsync({ addonId });
+    } catch {
+      setActionError("Couldn't add this add-on right now. Please try again, or chat with support.");
+    }
+  };
+
+  const handleRemoveAddon = async (addonId: string) => {
+    setActionError(null);
+    try {
+      await removeAddonMutation.mutateAsync({ addonId });
+      setPendingRemoveAddonId(null);
+    } catch {
+      setActionError("Couldn't remove this add-on right now. Please try again, or chat with support.");
+    }
   };
 
   const handleViewDetails = (addonId: string) => {
     track("addon_viewed", { addon_id: addonId });
     setSelectedAddon(addonId);
   };
+
+  if (!subscriptionQuery.isLoading && !subscription) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <EmptyState
+            icon={Shield}
+            title="No active subscription"
+            message="Add-ons are available after you start a subscription."
+            primaryCta={{ label: "View Plans", href: "/plans" }}
+            secondaryCta={{
+              label: "Chat on WhatsApp",
+              href: `https://wa.me/${siteConfig.whatsapp}?text=${encodeURIComponent(
+                "Hi Ashva Experts! I want help choosing a plan and add-ons."
+              )}`,
+            }}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (addonsQuery.isError && isNotImplemented) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <EmptyState
+            icon={Shield}
+            title="Add-ons coming soon"
+            message="We're rolling out add-ons in your portal soon. Chat with support to add upgrades to your plan." 
+            primaryCta={{
+              label: "Chat on WhatsApp",
+              href: `https://wa.me/${siteConfig.whatsapp}?text=${encodeURIComponent(
+                "Hi Ashva Experts! I want to add an add-on to my subscription."
+              )}`,
+            }}
+            secondaryCta={{ label: "View Plans", href: "/plans" }}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (addonsQuery.isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-5 w-80 mt-2" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardContent className="pt-6 space-y-3">
+              <Skeleton className="h-40 w-full" />
+              <Skeleton className="h-6 w-1/2" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-11 w-full" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 space-y-3">
+              <Skeleton className="h-40 w-full" />
+              <Skeleton className="h-6 w-1/2" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-11 w-full" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -102,7 +138,7 @@ export default function AddonsPage() {
       </div>
 
       {/* Active Add-ons */}
-      {activeAddons.length > 0 && (
+      {subscription?.addons && subscription.addons.length > 0 && (
         <Card className="bg-success/5 border-success/20">
           <CardHeader>
             <CardTitle className="text-h4 flex items-center gap-2">
@@ -112,35 +148,81 @@ export default function AddonsPage() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-3">
-              {activeAddons.map((addonId) => {
-                const addon = addons.find((a) => a.id === addonId);
-                if (!addon) return null;
-                return (
-                  <div
-                    key={addonId}
-                    className="flex items-center gap-2 px-4 py-2 bg-surface rounded-btn border border-success/30"
-                  >
-                    <addon.icon className="h-5 w-5 text-success" />
-                    <span className="text-body font-medium text-foreground">{addon.name}</span>
-                    <span className="text-small text-foreground-muted">₹{addon.price}/mo</span>
-                  </div>
-                );
-              })}
+              {subscription.addons.map((addon) => (
+                <div
+                  key={addon.id}
+                  className="flex items-center gap-2 px-4 py-2 bg-surface rounded-btn border border-success/30"
+                >
+                  <Check className="h-5 w-5 text-success" />
+                  <span className="text-body font-medium text-foreground">{addon.name}</span>
+                  <span className="text-small text-foreground-muted">₹{addon.monthlyPrice}/mo</span>
+                  {pendingRemoveAddonId === addon.id ? (
+                    <div className="ml-2 flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleRemoveAddon(addon.id)}
+                        isLoading={removeAddonMutation.isPending}
+                      >
+                        Remove
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setPendingRemoveAddonId(null)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => setPendingRemoveAddonId(addon.id)}>
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
       )}
 
       {/* Available Add-ons */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {actionError ? (
+        <Card className="border-error/30 bg-error/5">
+          <CardContent className="pt-6">
+            <p className="text-small text-error">{actionError}</p>
+            <a
+              className="inline-flex mt-3 text-small font-medium text-primary hover:underline"
+              href={`https://wa.me/${siteConfig.whatsapp}?text=${encodeURIComponent(
+                "Hi Ashva Experts! I'm facing an issue managing add-ons in the portal."
+              )}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Chat on WhatsApp
+            </a>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {/* Available Add-ons */}
+      {addons.length === 0 ? (
+        <Card>
+          <CardContent className="pt-6">
+            <EmptyState
+              icon={Shield}
+              title="No add-ons available"
+              message="We don't have add-ons available for your account yet."
+              primaryCta={{ label: "Chat on WhatsApp", href: `https://wa.me/${siteConfig.whatsapp}` }}
+              secondaryCta={{ label: "View Plans", href: "/plans" }}
+            />
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {addons.map((addon) => {
-          const isActive = activeAddons.includes(addon.id);
+          const isActive = activeAddonIds.has(addon.id);
           return (
             <Card
               key={addon.id}
               className={`relative overflow-hidden ${isActive ? "border-success" : ""}`}
             >
-              {addon.isPopular && !isActive && (
+              {(addon.isPopular || addon.badge === "Popular") && !isActive && (
                 <div className="absolute top-4 right-4 z-10">
                   <Badge variant="accent">Popular</Badge>
                 </div>
@@ -153,19 +235,23 @@ export default function AddonsPage() {
 
               {/* Image */}
               <div className="relative h-40 bg-surface-2">
-                <Image
-                  src={addon.image}
-                  alt={addon.name}
-                  fill
-                  className="object-cover"
-                />
+                {addon.imageUrl ? (
+                  <Image
+                    src={addon.imageUrl}
+                    alt={addon.name}
+                    fill
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-accent/10" />
+                )}
                 <div className="absolute inset-0 bg-gradient-to-t from-surface to-transparent" />
               </div>
 
               <CardContent className="pt-4">
                 <div className="flex items-start gap-3 mb-3">
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <addon.icon className="h-5 w-5 text-primary" />
+                    <Plus className="h-5 w-5 text-primary" />
                   </div>
                   <div>
                     <h3 className="text-h4 font-heading font-bold text-foreground">
@@ -173,9 +259,9 @@ export default function AddonsPage() {
                     </h3>
                     <div className="flex items-baseline gap-1 mt-1">
                       <span className="text-h4 font-heading font-bold text-primary">
-                        ₹{addon.price}
+                        ₹{addon.monthlyPrice}
                       </span>
-                      <span className="text-small text-foreground-muted">/{addon.priceType}</span>
+                      <span className="text-small text-foreground-muted">/month</span>
                     </div>
                   </div>
                 </div>
@@ -200,7 +286,11 @@ export default function AddonsPage() {
                   </Button>
                 ) : (
                   <div className="flex gap-2">
-                    <Button className="flex-1" onClick={() => handleAddAddon(addon.id)}>
+                    <Button
+                      className="flex-1"
+                      onClick={() => handleAddAddon(addon.id)}
+                      isLoading={addAddonMutation.isPending}
+                    >
                       <Plus className="h-4 w-4 mr-2" />
                       Add to Plan
                     </Button>
@@ -214,6 +304,7 @@ export default function AddonsPage() {
           );
         })}
       </div>
+      )}
 
       {/* Second Purifier Promo */}
       <Card className="bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
@@ -227,9 +318,9 @@ export default function AddonsPage() {
                 Get 20% off on a second purifier for your bedroom, office, or another location.
               </p>
             </div>
-            <Button>
-              Add Second Purifier
-            </Button>
+            <Link href="/plans" className="inline-flex">
+              <Button>Add Second Purifier</Button>
+            </Link>
           </div>
         </CardContent>
       </Card>

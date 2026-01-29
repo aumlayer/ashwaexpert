@@ -14,67 +14,8 @@ import {
   User,
   Filter,
 } from "lucide-react";
-import { Button, Skeleton } from "@/components/ui";
+import { Button, EmptyState, Skeleton } from "@/components/ui";
 import { useAdminTickets } from "@/hooks/use-admin";
-
-// Mock data
-const tickets = [
-  {
-    id: "TKT-001",
-    customer: { name: "Priya Sharma", phone: "9876543210" },
-    category: "repair",
-    title: "Water flow issue",
-    status: "open",
-    priority: "high",
-    assignee: "Rajesh T.",
-    createdAt: "2024-01-28T10:30:00",
-    slaBreaching: true,
-  },
-  {
-    id: "TKT-002",
-    customer: { name: "Anita Patel", phone: "7654321098" },
-    category: "maintenance",
-    title: "Quarterly maintenance",
-    status: "assigned",
-    priority: "medium",
-    assignee: "Suresh K.",
-    createdAt: "2024-01-27T14:00:00",
-    slaBreaching: false,
-  },
-  {
-    id: "TKT-003",
-    customer: { name: "Vikram Singh", phone: "6543210987" },
-    category: "complaint",
-    title: "Taste issue after filter change",
-    status: "in_progress",
-    priority: "high",
-    assignee: "Amit P.",
-    createdAt: "2024-01-27T09:15:00",
-    slaBreaching: true,
-  },
-  {
-    id: "TKT-004",
-    customer: { name: "Meera Krishnan", phone: "5432109876" },
-    category: "relocation",
-    title: "Relocation request",
-    status: "resolved",
-    priority: "low",
-    assignee: "Rajesh T.",
-    createdAt: "2024-01-26T16:45:00",
-    slaBreaching: false,
-  },
-  {
-    id: "TKT-005",
-    customer: { name: "Rajesh Kumar", phone: "8765432109" },
-    category: "repair",
-    title: "Leakage from tank",
-    status: "closed",
-    priority: "urgent",
-    assignee: "Suresh K.",
-    createdAt: "2024-01-25T11:00:00",
-    slaBreaching: false,
-  },
-];
 
 const statusConfig: Record<string, { color: string; bg: string }> = {
   open: { color: "text-blue-400", bg: "bg-blue-500/20" },
@@ -97,19 +38,32 @@ export default function TicketsPage() {
 
   const ticketsQuery = useAdminTickets({ status: statusFilter === "all" ? undefined : statusFilter, page: 1 });
 
-  const ticketsForUi = (ticketsQuery.data?.data && ticketsQuery.data.data.length > 0
-    ? ticketsQuery.data.data.map((t) => ({
-        id: t.id,
-        customer: { name: t.customerName, phone: t.customerPhone },
-        category: t.category,
-        title: t.title,
-        status: t.status,
-        priority: t.priority,
-        assignee: t.assigneeName || "-",
-        createdAt: t.createdAt,
-        slaBreaching: t.slaBreaching,
-      }))
-    : tickets) as any[];
+  const ticketsForUi = (ticketsQuery.data?.items ?? []).map((t) => {
+    const now = Date.now();
+    const slaBreaching =
+      !!t.sla_due_at &&
+      new Date(t.sla_due_at).getTime() < now &&
+      !["closed", "completed", "cancelled"].includes(t.status);
+
+    const uiStatus =
+      t.status === "created"
+        ? "open"
+        : t.status === "completed"
+        ? "resolved"
+        : t.status;
+
+    return {
+      id: t.ticket_number || t.id,
+      customer: { name: t.subscriber_id, phone: "" },
+      category: t.ticket_type,
+      title: t.title,
+      status: uiStatus,
+      priority: t.priority,
+      assignee: t.assigned_technician_id || "-",
+      createdAt: t.created_at,
+      slaBreaching,
+    };
+  });
 
   const filteredTickets = ticketsForUi.filter((ticket) => {
     const matchesSearch =
@@ -201,101 +155,128 @@ export default function TicketsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-[#1E293B] rounded-xl border border-[#334155] overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-[#334155]">
-                <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Ticket</th>
-                <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Customer</th>
-                <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Category</th>
-                <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Priority</th>
-                <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Status</th>
-                <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Assignee</th>
-                <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Created</th>
-                <th className="text-right py-3 px-4 text-small font-medium text-gray-400">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTickets.map((ticket) => {
-                const status = statusConfig[ticket.status];
-                const priority = priorityConfig[ticket.priority];
-                return (
-                  <tr key={ticket.id} className={`border-b border-[#334155] hover:bg-[#334155]/50 ${ticket.slaBreaching ? "bg-red-500/5" : ""}`}>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
-                        {ticket.slaBreaching && (
-                          <AlertTriangle className="h-4 w-4 text-red-500" />
-                        )}
-                        <div>
-                          <span className="text-small font-mono text-primary">{ticket.id}</span>
-                          <p className="text-caption text-gray-300 mt-0.5">{ticket.title}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <p className="text-body font-medium">{ticket.customer.name}</p>
-                      <p className="text-caption text-gray-400">{ticket.customer.phone}</p>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
-                        <Wrench className="h-4 w-4 text-gray-400" />
-                        <span className="text-small capitalize">{ticket.category}</span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className={`inline-block px-2 py-0.5 rounded text-caption font-medium ${priority.bg} ${priority.color}`}>
-                        {ticket.priority}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className={`inline-block px-2 py-0.5 rounded text-caption font-medium ${status.bg} ${status.color}`}>
-                        {ticket.status.replace("_", " ")}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-gray-400" />
-                        <span className="text-small">{ticket.assignee}</span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-1 text-small text-gray-400">
-                        <Calendar className="h-3 w-3" />
-                        {new Date(ticket.createdAt).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                        })}
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 text-right">
-                      <button className="p-2 hover:bg-[#334155] rounded-lg">
-                        <MoreVertical className="h-4 w-4 text-gray-400" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        <div className="flex items-center justify-between p-4 border-t border-[#334155]">
-          <p className="text-small text-gray-400">
-            Showing {filteredTickets.length} of {ticketsForUi.length} tickets
-          </p>
-          <div className="flex items-center gap-2">
-            <button className="p-2 rounded-lg bg-[#334155] text-gray-400 hover:text-white">
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span className="px-3 py-1 text-small text-white">1</span>
-            <button className="p-2 rounded-lg bg-[#334155] text-gray-400 hover:text-white">
-              <ChevronRight className="h-4 w-4" />
-            </button>
+      {ticketsQuery.isLoading ? (
+        <div className="bg-[#1E293B] rounded-xl border border-[#334155] overflow-hidden">
+          <div className="p-4">
+            <Skeleton className="h-6 w-48 bg-white/10" />
+            <Skeleton className="h-6 w-80 bg-white/10 mt-3" />
+            <Skeleton className="h-6 w-72 bg-white/10 mt-3" />
           </div>
         </div>
-      </div>
+      ) : ticketsQuery.isError ? (
+        <EmptyState
+          title="Unable to load tickets"
+          message="Please try again. If the issue persists, contact support."
+          primaryCta={{ label: "Retry", onClick: () => ticketsQuery.refetch() }}
+        />
+      ) : filteredTickets.length === 0 ? (
+        <EmptyState
+          title="No tickets found"
+          message="No tickets match your filters."
+        />
+      ) : (
+        <div className="bg-[#1E293B] rounded-xl border border-[#334155] overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[#334155]">
+                  <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Ticket</th>
+                  <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Subscriber</th>
+                  <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Category</th>
+                  <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Priority</th>
+                  <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Status</th>
+                  <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Assignee</th>
+                  <th className="text-left py-3 px-4 text-small font-medium text-gray-400">Created</th>
+                  <th className="text-right py-3 px-4 text-small font-medium text-gray-400">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTickets.map((ticket) => {
+                  const status = statusConfig[ticket.status] ?? statusConfig.open;
+                  const priority = priorityConfig[ticket.priority] ?? priorityConfig.medium;
+                  return (
+                    <tr
+                      key={ticket.id}
+                      className={`border-b border-[#334155] hover:bg-[#334155]/50 ${
+                        ticket.slaBreaching ? "bg-red-500/5" : ""
+                      }`}
+                    >
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2">
+                          {ticket.slaBreaching ? <AlertTriangle className="h-4 w-4 text-red-500" /> : null}
+                          <div>
+                            <span className="text-small font-mono text-primary">{ticket.id}</span>
+                            <p className="text-caption text-gray-300 mt-0.5">{ticket.title}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-small font-mono text-gray-300">{ticket.customer.name}</p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2">
+                          <Wrench className="h-4 w-4 text-gray-400" />
+                          <span className="text-small capitalize">{ticket.category}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded text-caption font-medium ${priority.bg} ${priority.color}`}
+                        >
+                          {ticket.priority}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded text-caption font-medium ${status.bg} ${status.color}`}
+                        >
+                          {ticket.status.replace("_", " ")}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-gray-400" />
+                          <span className="text-small">{ticket.assignee}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-1 text-small text-gray-400">
+                          <Calendar className="h-3 w-3" />
+                          {new Date(ticket.createdAt).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <button className="p-2 hover:bg-[#334155] rounded-lg">
+                          <MoreVertical className="h-4 w-4 text-gray-400" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between p-4 border-t border-[#334155]">
+            <p className="text-small text-gray-400">
+              Showing {filteredTickets.length} of {ticketsQuery.data?.total ?? ticketsForUi.length} tickets
+            </p>
+            <div className="flex items-center gap-2">
+              <button className="p-2 rounded-lg bg-[#334155] text-gray-400 hover:text-white">
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="px-3 py-1 text-small text-white">1</span>
+              <button className="p-2 rounded-lg bg-[#334155] text-gray-400 hover:text-white">
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

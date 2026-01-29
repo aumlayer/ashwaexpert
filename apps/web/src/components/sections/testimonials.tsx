@@ -4,8 +4,13 @@ import Image from "next/image";
 import { Star, Quote, BadgeCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui";
 import { testimonials } from "@/data/content";
+import { useTestimonials } from "@/hooks/use-api";
 
 export function TestimonialsSection() {
+  const testimonialsQuery = useTestimonials();
+  const testimonialsForUi =
+    testimonialsQuery.data && testimonialsQuery.data.length > 0 ? testimonialsQuery.data : testimonials;
+
   return (
     <section className="py-18 lg:py-24 bg-surface-2">
       <div className="mx-auto max-w-container px-4 sm:px-6 lg:px-8">
@@ -25,7 +30,7 @@ export function TestimonialsSection() {
 
         {/* Testimonials Grid */}
         <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-          {testimonials.map((testimonial) => (
+          {testimonialsForUi.map((testimonial) => (
             <Card key={testimonial.id} className="relative overflow-hidden">
               <CardContent className="pt-6">
                 {/* Quote Icon */}

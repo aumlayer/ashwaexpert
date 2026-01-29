@@ -15,43 +15,10 @@ import {
   Filter,
   RefreshCw,
 } from "lucide-react";
-import { Button, Card, CardContent, CardHeader, CardTitle, Badge, Skeleton } from "@/components/ui";
+import { Button, Card, CardContent, CardHeader, CardTitle, Badge, Skeleton, EmptyState } from "@/components/ui";
 import { track } from "@/utils/analytics";
 import { useCancelSubscription, useSubscription, useUpgradeSubscription } from "@/hooks/use-subscription";
-
-// Mock subscription data - will be replaced with API
-const subscription = {
-  id: "sub_123",
-  plan: {
-    id: "advanced-ro-uv",
-    name: "Advanced RO+UV",
-    monthlyPrice: 549,
-    features: [
-      "7-stage RO+UV purification",
-      "10L storage tank",
-      "Monthly maintenance",
-      "Filter replacement included",
-      "TDS controller",
-      "24/7 priority support",
-    ],
-  },
-  status: "active" as const,
-  startDate: "2024-01-10",
-  nextBillingDate: "2024-02-15",
-  lockInEndsAt: "2024-07-10",
-  device: {
-    serialNumber: "ASH-2024-00123",
-    model: "Aqua Pro 7000",
-    installedDate: "2024-01-10",
-  },
-  address: {
-    line1: "123, Green Valley Apartments",
-    line2: "HSR Layout, Sector 2",
-    city: "Bangalore",
-    state: "Karnataka",
-    pincode: "560102",
-  },
-};
+import { siteConfig } from "@/data/content";
 
 const prepaidOptions = [
   { months: 3, discount: 5, savings: 82 },
@@ -75,10 +42,10 @@ export default function SubscriptionPage() {
 
   const apiSubscription = subscriptionQuery.data;
 
-  const subscriptionForUi = apiSubscription ?? subscription;
-  const planForUi = apiSubscription?.plan ?? subscription.plan;
-  const addressForUi = apiSubscription?.address ?? subscription.address;
-  const deviceForUi = apiSubscription?.device ?? subscription.device;
+  const subscriptionForUi = apiSubscription;
+  const planForUi = apiSubscription?.plan;
+  const addressForUi = apiSubscription?.address;
+  const deviceForUi = apiSubscription?.device;
 
   const lockInEndsAt = apiSubscription
     ? (() => {
@@ -88,7 +55,7 @@ export default function SubscriptionPage() {
         base.setMonth(base.getMonth() + months);
         return base.toISOString();
       })()
-    : subscription.lockInEndsAt;
+    : null;
 
   const handleUpgradeClick = () => {
     track("subscription_viewed", {});
@@ -109,9 +76,34 @@ export default function SubscriptionPage() {
     } catch {}
   };
 
-  const daysUntilBilling = Math.ceil(
-    (new Date(subscriptionForUi.nextBillingDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-  );
+  const daysUntilBilling = subscriptionForUi?.nextBillingDate
+    ? Math.ceil(
+        (new Date(subscriptionForUi.nextBillingDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+      )
+    : null;
+
+  if (!subscriptionQuery.isLoading && !subscriptionForUi) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="py-12 text-center">
+            <EmptyState
+              icon={Droplets}
+              title="No active subscription"
+              message="Subscribe to a plan to see billing, device, and service details here."
+              primaryCta={{ label: "View Plans", href: "/plans" }}
+              secondaryCta={{
+                label: "Chat on WhatsApp",
+                href: `https://wa.me/${siteConfig.whatsapp}?text=${encodeURIComponent(
+                  "Hi Ashva Experts! I want to start a subscription."
+                )}`,
+              }}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -129,20 +121,27 @@ export default function SubscriptionPage() {
                     {subscriptionQuery.isLoading ? (
                       <Skeleton className="h-8 w-56" />
                     ) : (
-                      planForUi.name
+                      planForUi?.name || "Subscription"
                     )}
                   </h2>
-                  <Badge variant="success">Active</Badge>
+                  {subscriptionForUi?.status ? (
+                    <Badge variant={subscriptionForUi.status === "active" ? "success" : "default"}>
+                      {subscriptionForUi.status}
+                    </Badge>
+                  ) : null}
                 </div>
                 <p className="text-body text-foreground-muted mt-1">
-                  Device: {deviceForUi.model} ({deviceForUi.serialNumber})
+                  Device: {deviceForUi?.model || "—"} ({deviceForUi?.serialNumber || "—"})
                 </p>
                 <p className="text-small text-foreground-muted mt-1">
-                  Installed on {new Date(deviceForUi.installedDate).toLocaleDateString("en-IN", {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })}
+                  {deviceForUi?.installedDate
+                    ? `Installed on ${new Date(deviceForUi.installedDate).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}`
+                    : ""
+                  }
                 </p>
               </div>
             </div>
@@ -196,24 +195,26 @@ export default function SubscriptionPage() {
           <CardContent>
             <div className="flex items-baseline gap-2">
               <span className="text-h2 font-heading font-bold text-foreground">
-                ₹{planForUi.monthlyPrice}
+                ₹{planForUi?.monthlyPrice ?? 0}
               </span>
               <span className="text-body text-foreground-muted">/month</span>
             </div>
             <p className="text-body text-foreground-muted mt-2">
               Due on{" "}
               <span className="font-medium text-foreground">
-                {new Date(subscriptionForUi.nextBillingDate).toLocaleDateString("en-IN", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}
+                {subscriptionForUi?.nextBillingDate
+                  ? new Date(subscriptionForUi.nextBillingDate).toLocaleDateString("en-IN", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })
+                  : "—"}
               </span>
             </p>
             <div className="mt-4 flex items-center gap-2 text-small">
               <Clock className="h-4 w-4 text-foreground-muted" />
               <span className="text-foreground-muted">
-                {daysUntilBilling} days until next payment
+                {daysUntilBilling != null ? `${daysUntilBilling} days until next payment` : ""}
               </span>
             </div>
           </CardContent>
@@ -231,11 +232,13 @@ export default function SubscriptionPage() {
               Your 6-month lock-in period ends on
             </p>
             <p className="text-h4 font-heading font-bold text-foreground mt-1">
-              {new Date(lockInEndsAt).toLocaleDateString("en-IN", {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })}
+              {lockInEndsAt
+                ? new Date(lockInEndsAt).toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })
+                : "—"}
             </p>
             <p className="text-small text-foreground-muted mt-3">
               After this date, you can cancel anytime with 30 days notice.
@@ -297,7 +300,7 @@ export default function SubscriptionPage() {
           <div className="border-t border-border pt-4">
             <p className="text-small font-medium text-foreground mb-3">Plan Features:</p>
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {subscription.plan.features.map((feature) => (
+              {(planForUi?.features ?? []).map((feature) => (
                 <li key={feature} className="flex items-center gap-2 text-small text-foreground-muted">
                   <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
                   {feature}
@@ -321,11 +324,11 @@ export default function SubscriptionPage() {
         </CardHeader>
         <CardContent>
           <p className="text-body text-foreground">
-            {addressForUi.line1}
-            {addressForUi.line2 && <>, {addressForUi.line2}</>}
+            {addressForUi?.line1 || "—"}
+            {addressForUi?.line2 && <>, {addressForUi.line2}</>}
           </p>
           <p className="text-body text-foreground-muted">
-            {addressForUi.city}, {addressForUi.state} - {addressForUi.pincode}
+            {addressForUi ? `${addressForUi.city}, ${addressForUi.state} - ${addressForUi.pincode}` : ""}
           </p>
         </CardContent>
       </Card>

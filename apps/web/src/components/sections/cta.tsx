@@ -6,11 +6,16 @@ import { ArrowRight } from "lucide-react";
 import { Button, Input } from "@/components/ui";
 import { track } from "@/utils/analytics";
 import { siteConfig } from "@/data/content";
+import { useCheckAvailability } from "@/hooks/use-api";
+import { buildFunnelLocationQuery } from "@/utils/funnel-location";
 
 export function CTASection() {
   const router = useRouter();
   const [pincode, setPincode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const checkAvailabilityMutation = useCheckAvailability();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,10 +24,35 @@ export function CTASection() {
     track("pincode_check_started", { pincode, source: "footer_cta" });
     setIsLoading(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      setError(null);
+      const res = await checkAvailabilityMutation.mutateAsync({ pincode });
+      track("pincode_check_success", { pincode, available: res.available, source: "footer_cta" });
 
-    track("pincode_check_success", { pincode });
-    router.push(`/check-availability?pincode=${pincode}`);
+      if (!res.available) {
+        setError("We don't serve your area yet. You can leave your details and we'll notify you when we launch.");
+        router.push(
+          `/check-availability${buildFunnelLocationQuery({
+            pincode,
+            city: res.city || undefined,
+            locality: res.locality || undefined,
+          })}`
+        );
+        return;
+      }
+
+      router.push(
+        `/plans${buildFunnelLocationQuery({
+          pincode,
+          city: res.city || undefined,
+          locality: res.locality || undefined,
+        })}`
+      );
+    } catch {
+      setError("We couldn't check availability right now. Please try again, or chat with us on WhatsApp.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -60,6 +90,22 @@ export function CTASection() {
             <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
         </form>
+
+        {error ? (
+          <div className="mt-4 max-w-md mx-auto bg-white/10 border border-white/15 rounded-card p-4 text-left">
+            <p className="text-small text-white/90">{error}</p>
+            <a
+              className="inline-flex mt-3 text-small font-semibold text-white hover:underline"
+              href={`https://wa.me/${siteConfig.whatsapp}?text=${encodeURIComponent(
+                `Hi Ashva Experts! Please help me with availability for pincode ${pincode}.`
+              )}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Chat on WhatsApp
+            </a>
+          </div>
+        ) : null}
 
         <p className="mt-6 text-small text-white/60">
           Or call us at{" "}

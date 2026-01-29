@@ -3,57 +3,17 @@
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui";
-
-const plans = [
-  {
-    id: "basic",
-    name: "Basic RO",
-    price: 399,
-    badge: null,
-    features: [
-      "5-stage RO purification",
-      "8L storage tank",
-      "Free installation",
-      "Quarterly maintenance",
-      "Filter replacement included",
-    ],
-    bestFor: "Municipal water",
-  },
-  {
-    id: "advanced",
-    name: "Advanced RO+UV",
-    price: 549,
-    badge: "Most Popular",
-    features: [
-      "7-stage RO+UV purification",
-      "10L storage tank",
-      "Free installation",
-      "Monthly maintenance",
-      "Filter replacement included",
-      "TDS controller",
-    ],
-    bestFor: "Borewell water",
-  },
-  {
-    id: "premium",
-    name: "Premium Copper",
-    price: 749,
-    badge: "Best Value",
-    features: [
-      "8-stage RO+UV+Copper",
-      "12L storage tank",
-      "Free installation",
-      "Monthly maintenance",
-      "Filter replacement included",
-      "TDS controller",
-      "Copper infusion",
-      "Alkaline boost",
-    ],
-    bestFor: "Health conscious",
-  },
-];
+import { usePlans } from "@/hooks/use-api";
+import { plans as plansData } from "@/data/content";
 
 export function TopPlansSection() {
+  const plansQuery = usePlans();
+  const allPlans = plansQuery.data && plansQuery.data.length > 0 ? plansQuery.data : plansData;
+  const topPlans = [...allPlans]
+    .filter((p) => p.isActive !== false)
+    .sort((a, b) => Number(Boolean(b.isPopular)) - Number(Boolean(a.isPopular)))
+    .slice(0, 3);
+
   return (
     <section className="py-18 lg:py-24 bg-surface-2">
       <div className="mx-auto max-w-container px-4 sm:px-6 lg:px-8">
@@ -70,7 +30,7 @@ export function TopPlansSection() {
 
         {/* Plans Grid */}
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
-          {plans.map((plan) => (
+          {topPlans.map((plan) => (
             <Card
               key={plan.id}
               className={`relative ${
@@ -92,7 +52,7 @@ export function TopPlansSection() {
                 <CardTitle className="text-h3">{plan.name}</CardTitle>
                 <div className="mt-4 flex items-baseline justify-center gap-1">
                   <span className="text-h2 font-heading font-bold text-foreground">
-                    ₹{plan.price}
+                    ₹{plan.monthlyPrice}
                   </span>
                   <span className="text-body text-foreground-muted">/month</span>
                 </div>

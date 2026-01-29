@@ -5,3 +5,4 @@ export * from "./badge";
 export * from "./skeleton";
 export * from "./whatsapp-button";
 export * from "./sticky-cta";
+export * from "./empty-state";

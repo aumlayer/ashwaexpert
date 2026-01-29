@@ -1,44 +1,104 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { User, Phone, Mail, MapPin, Bell, Shield, Save } from "lucide-react";
-import { Button, Card, CardContent, CardHeader, CardTitle, Input } from "@/components/ui";
-import { useAuth } from "@/hooks/use-auth";
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Skeleton, EmptyState } from "@/components/ui";
+import { useSubscriberMe, useUpdateSubscriberMe } from "@/hooks/use-api";
 import { track } from "@/utils/analytics";
+import { siteConfig } from "@/data/content";
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const subscriberMeQuery = useSubscriberMe();
+  const updateSubscriberMe = useUpdateSubscriberMe();
+
   const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+
+  const subscriber = subscriberMeQuery.data;
 
   const [formData, setFormData] = useState({
-    name: user?.name || "John Doe",
-    email: user?.email || "john@example.com",
-    phone: user?.phone || "9876543210",
-    address: {
-      line1: "123, Green Valley Apartments",
-      line2: "HSR Layout, Sector 2",
-      city: "Bangalore",
-      state: "Karnataka",
-      pincode: "560102",
-    },
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
   });
 
-  const [preferences, setPreferences] = useState({
-    emailNotifications: true,
-    smsNotifications: true,
-    whatsappNotifications: true,
-    marketingEmails: false,
-  });
+  const displayName = useMemo(() => {
+    const full = `${formData.firstName} ${formData.lastName}`.trim();
+    return full || "Profile";
+  }, [formData.firstName, formData.lastName]);
+
+  useEffect(() => {
+    if (!subscriber) return;
+    setFormData({
+      firstName: subscriber.first_name || "",
+      lastName: subscriber.last_name || "",
+      email: subscriber.email || "",
+      phone: (subscriber.phone || "").replace(/^\+?91/, "").trim(),
+    });
+  }, [subscriber]);
 
   const handleSave = async () => {
-    setIsSaving(true);
     track("profile_updated", {});
-    // TODO: Call API to update profile
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIsSaving(false);
+    await updateSubscriberMe.mutateAsync({
+      first_name: formData.firstName,
+      last_name: formData.lastName,
+      phone: formData.phone ? `+91${formData.phone}` : undefined,
+    });
     setIsEditing(false);
   };
+
+  if (subscriberMeQuery.isLoading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="py-6">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <Skeleton className="h-20 w-20 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-4 w-56" />
+              </div>
+              <Skeleton className="h-11 w-40" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-56" />
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (subscriberMeQuery.isError || !subscriber) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <EmptyState
+            icon={User}
+            title="Profile not available"
+            message="We couldn't load your profile right now. Please retry or chat with support."
+            primaryCta={{ label: "Retry", onClick: () => subscriberMeQuery.refetch() }}
+            secondaryCta={{
+              label: "Chat on WhatsApp",
+              href: `https://wa.me/${siteConfig.whatsapp}?text=${encodeURIComponent(
+                "Hi Ashva Experts! I can't load my profile in the portal. Please help."
+              )}`,
+            }}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -51,7 +111,7 @@ export default function ProfilePage() {
             </div>
             <div className="flex-1">
               <h2 className="text-h3 font-heading font-bold text-foreground">
-                {formData.name}
+                {displayName}
               </h2>
               <p className="text-body text-foreground-muted">
                 Customer since January 2024
@@ -60,7 +120,7 @@ export default function ProfilePage() {
             <Button
               variant={isEditing ? "primary" : "outline"}
               onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
-              isLoading={isSaving}
+              isLoading={updateSubscriberMe.isPending}
             >
               {isEditing ? (
                 <>
@@ -90,14 +150,20 @@ export default function ProfilePage() {
                 Full Name
               </label>
               {isEditing ? (
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-3 rounded-btn border border-border bg-surface text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-body"
-                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Input
+                    label="First Name"
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  />
+                  <Input
+                    label="Last Name"
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  />
+                </div>
               ) : (
-                <p className="text-body text-foreground py-3">{formData.name}</p>
+                <p className="text-body text-foreground py-3">{displayName}</p>
               )}
             </div>
 
@@ -105,32 +171,30 @@ export default function ProfilePage() {
               <label className="block text-small font-medium text-foreground mb-1.5">
                 Phone Number
               </label>
-              <div className="flex items-center gap-2 py-3">
-                <Phone className="h-4 w-4 text-foreground-muted" />
-                <p className="text-body text-foreground">+91 {formData.phone}</p>
-                <span className="text-caption text-success bg-success/10 px-2 py-0.5 rounded">
-                  Verified
-                </span>
-              </div>
+              {isEditing ? (
+                <Input
+                  label="Phone"
+                  inputMode="numeric"
+                  maxLength={10}
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, "") })}
+                />
+              ) : (
+                <div className="flex items-center gap-2 py-3">
+                  <Phone className="h-4 w-4 text-foreground-muted" />
+                  <p className="text-body text-foreground">{formData.phone ? `+91 ${formData.phone}` : "—"}</p>
+                </div>
+              )}
             </div>
 
             <div>
               <label className="block text-small font-medium text-foreground mb-1.5">
                 Email Address
               </label>
-              {isEditing ? (
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-4 py-3 rounded-btn border border-border bg-surface text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-body"
-                />
-              ) : (
-                <div className="flex items-center gap-2 py-3">
-                  <Mail className="h-4 w-4 text-foreground-muted" />
-                  <p className="text-body text-foreground">{formData.email}</p>
-                </div>
-              )}
+              <div className="flex items-center gap-2 py-3">
+                <Mail className="h-4 w-4 text-foreground-muted" />
+                <p className="text-body text-foreground">{formData.email || "—"}</p>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -145,84 +209,22 @@ export default function ProfilePage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {isEditing ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <label className="block text-small font-medium text-foreground mb-1.5">
-                  Address Line 1
-                </label>
-                <input
-                  type="text"
-                  value={formData.address.line1}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      address: { ...formData.address, line1: e.target.value },
-                    })
-                  }
-                  className="w-full px-4 py-3 rounded-btn border border-border bg-surface text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-body"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-small font-medium text-foreground mb-1.5">
-                  Address Line 2
-                </label>
-                <input
-                  type="text"
-                  value={formData.address.line2}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      address: { ...formData.address, line2: e.target.value },
-                    })
-                  }
-                  className="w-full px-4 py-3 rounded-btn border border-border bg-surface text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-body"
-                />
-              </div>
-              <div>
-                <label className="block text-small font-medium text-foreground mb-1.5">
-                  City
-                </label>
-                <input
-                  type="text"
-                  value={formData.address.city}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      address: { ...formData.address, city: e.target.value },
-                    })
-                  }
-                  className="w-full px-4 py-3 rounded-btn border border-border bg-surface text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-body"
-                />
-              </div>
-              <div>
-                <label className="block text-small font-medium text-foreground mb-1.5">
-                  Pincode
-                </label>
-                <input
-                  type="text"
-                  value={formData.address.pincode}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      address: { ...formData.address, pincode: e.target.value },
-                    })
-                  }
-                  className="w-full px-4 py-3 rounded-btn border border-border bg-surface text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-body"
-                />
-              </div>
-            </div>
-          ) : (
-            <div>
-              <p className="text-body text-foreground">
-                {formData.address.line1}
-                {formData.address.line2 && <>, {formData.address.line2}</>}
-              </p>
-              <p className="text-body text-foreground-muted">
-                {formData.address.city}, {formData.address.state} - {formData.address.pincode}
-              </p>
-            </div>
-          )}
+          <p className="text-body text-foreground">
+            Your installation address is used from your latest checkout and service requests.
+          </p>
+          <p className="text-small text-foreground-muted mt-1">
+            If you need to update your address, please chat with support.
+          </p>
+          <a
+            className="inline-flex mt-4 text-small font-medium text-primary hover:underline"
+            href={`https://wa.me/${siteConfig.whatsapp}?text=${encodeURIComponent(
+              "Hi Ashva Experts! I want to update my installation address."
+            )}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Chat on WhatsApp
+          </a>
         </CardContent>
       </Card>
 
@@ -235,42 +237,12 @@ export default function ProfilePage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {[
-              { key: "emailNotifications", label: "Email Notifications", desc: "Receive updates via email" },
-              { key: "smsNotifications", label: "SMS Notifications", desc: "Receive updates via SMS" },
-              { key: "whatsappNotifications", label: "WhatsApp Notifications", desc: "Receive updates on WhatsApp" },
-              { key: "marketingEmails", label: "Marketing Emails", desc: "Receive offers and promotions" },
-            ].map((pref) => (
-              <div key={pref.key} className="flex items-center justify-between py-2">
-                <div>
-                  <p className="text-body font-medium text-foreground">{pref.label}</p>
-                  <p className="text-small text-foreground-muted">{pref.desc}</p>
-                </div>
-                <button
-                  onClick={() =>
-                    setPreferences({
-                      ...preferences,
-                      [pref.key]: !preferences[pref.key as keyof typeof preferences],
-                    })
-                  }
-                  className={`relative w-12 h-6 rounded-full transition-colors ${
-                    preferences[pref.key as keyof typeof preferences]
-                      ? "bg-primary"
-                      : "bg-foreground-muted/30"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
-                      preferences[pref.key as keyof typeof preferences]
-                        ? "translate-x-7"
-                        : "translate-x-1"
-                    }`}
-                  />
-                </button>
-              </div>
-            ))}
-          </div>
+          <p className="text-body text-foreground">
+            Notification preferences will be available soon.
+          </p>
+          <p className="text-small text-foreground-muted mt-1">
+            For urgent changes, please contact support.
+          </p>
         </CardContent>
       </Card>
 

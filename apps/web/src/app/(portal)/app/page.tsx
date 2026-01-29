@@ -12,31 +12,12 @@ import {
   Clock,
   Gift,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, Skeleton } from "@/components/ui";
+import { Card, CardContent, CardHeader, CardTitle, EmptyState, Skeleton } from "@/components/ui";
 import { useAuth } from "@/hooks/use-auth";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useMaintenanceSchedule } from "@/hooks/use-service";
 import { usePayments } from "@/hooks/use-payments";
-
-// Mock data - will be replaced with API calls
-const subscriptionData = {
-  plan: "Advanced RO+UV",
-  status: "active",
-  nextBilling: "Feb 15, 2024",
-  monthlyAmount: 549,
-  installedDate: "Jan 10, 2024",
-};
-
-const upcomingVisit = {
-  type: "Quarterly Maintenance",
-  date: "Feb 20, 2024",
-  timeSlot: "10:00 AM - 12:00 PM",
-};
-
-const recentPayments = [
-  { id: "1", date: "Jan 15, 2024", amount: 549, status: "paid" },
-  { id: "2", date: "Dec 15, 2023", amount: 549, status: "paid" },
-];
+import { siteConfig } from "@/data/content";
 
 const quickActions = [
   { name: "Raise Service Request", href: "/app/service", icon: Wrench, color: "text-accent" },
@@ -55,24 +36,21 @@ export default function PortalDashboard() {
   const nextVisit = maintenanceQuery.data?.nextVisit;
   const payments = paymentsQuery.data;
 
-  const currentPlanName = subscription?.plan?.name || subscriptionData.plan;
-  const currentStatus = subscription?.status || subscriptionData.status;
-  const monthlyAmount = subscription?.monthlyAmount ?? subscriptionData.monthlyAmount;
-  const nextBillingDate = subscription?.nextBillingDate || subscriptionData.nextBilling;
+  const currentPlanName = subscription?.plan?.name;
+  const currentStatus = subscription?.status;
+  const monthlyAmount = subscription?.monthlyAmount;
+  const nextBillingDate = subscription?.nextBillingDate;
 
-  const upcomingType = nextVisit?.type || upcomingVisit.type;
-  const upcomingDate = nextVisit?.date || upcomingVisit.date;
-  const upcomingTimeSlot = nextVisit?.timeSlot || upcomingVisit.timeSlot;
+  const upcomingType = nextVisit?.type;
+  const upcomingDate = nextVisit?.date;
+  const upcomingTimeSlot = nextVisit?.timeSlot;
 
-  const recentPaymentsForUi = (payments && payments.length > 0
-    ? payments.slice(0, 2).map((p) => ({
-        id: p.id,
-        date: p.date,
-        amount: p.amount,
-        status: p.status,
-      }))
-    : recentPayments
-  ).slice(0, 2);
+  const recentPaymentsForUi = (payments ?? []).slice(0, 2).map((p) => ({
+    id: p.id,
+    date: p.date,
+    amount: p.amount,
+    status: p.status,
+  }));
 
   return (
     <div className="space-y-6">
@@ -98,14 +76,23 @@ export default function PortalDashboard() {
                   <Skeleton className="h-7 w-40 mt-2" />
                 ) : (
                   <p className="text-h4 font-heading font-bold text-foreground mt-1">
-                    {currentPlanName}
+                    {currentPlanName ?? "No active subscription"}
                   </p>
                 )}
                 <div className="flex items-center gap-1 mt-2">
-                  <CheckCircle2 className="h-4 w-4 text-success" />
-                  <span className="text-small text-success font-medium capitalize">
-                    {currentStatus}
-                  </span>
+                  {currentStatus ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 text-success" />
+                      <span className="text-small text-success font-medium capitalize">
+                        {currentStatus}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="h-4 w-4 text-warning" />
+                      <span className="text-small text-warning font-medium">Inactive</span>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -132,13 +119,13 @@ export default function PortalDashboard() {
                   <Skeleton className="h-7 w-24 mt-2" />
                 ) : (
                   <p className="text-h4 font-heading font-bold text-foreground mt-1">
-                    ₹{monthlyAmount}
+                    {monthlyAmount != null ? `₹${monthlyAmount}` : "—"}
                   </p>
                 )}
                 <div className="flex items-center gap-1 mt-2">
                   <Calendar className="h-4 w-4 text-foreground-muted" />
                   <span className="text-small text-foreground-muted">
-                    {nextBillingDate}
+                    {nextBillingDate ?? "No upcoming billing"}
                   </span>
                 </div>
               </div>
@@ -166,13 +153,15 @@ export default function PortalDashboard() {
                   <Skeleton className="h-7 w-44 mt-2" />
                 ) : (
                   <p className="text-h4 font-heading font-bold text-foreground mt-1">
-                    {upcomingType}
+                    {upcomingType ?? "No visit scheduled"}
                   </p>
                 )}
                 <div className="flex items-center gap-1 mt-2">
                   <Clock className="h-4 w-4 text-foreground-muted" />
                   <span className="text-small text-foreground-muted">
-                    {upcomingDate}
+                    {upcomingDate
+                      ? `${upcomingDate}${upcomingTimeSlot ? ` • ${upcomingTimeSlot}` : ""}`
+                      : "We'll notify you when your next visit is scheduled"}
                   </span>
                 </div>
               </div>
@@ -259,7 +248,21 @@ export default function PortalDashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {recentPaymentsForUi.map((payment) => (
+              {recentPaymentsForUi.length === 0 ? (
+                <EmptyState
+                  icon={CreditCard}
+                  title="No payments yet"
+                  message="Your payment history will appear here once billed."
+                  primaryCta={{ label: "View Plans", href: "/plans" }}
+                  secondaryCta={{
+                    label: "Chat on WhatsApp",
+                    href: `https://wa.me/${siteConfig.whatsapp}?text=${encodeURIComponent(
+                      "Hi Ashva Experts! I need help with billing and payments."
+                    )}`,
+                  }}
+                />
+              ) : (
+                recentPaymentsForUi.map((payment) => (
                 <div
                   key={payment.id}
                   className="flex items-center justify-between py-3 border-b border-border last:border-0"
@@ -282,7 +285,8 @@ export default function PortalDashboard() {
                     <p className="text-small text-success capitalize">{payment.status}</p>
                   </div>
                 </div>
-              ))}
+                ))
+              )}
             </div>
           )}
         </CardContent>

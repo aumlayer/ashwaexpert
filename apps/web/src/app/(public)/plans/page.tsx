@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui
 import { track } from "@/utils/analytics";
 import { usePlans } from "@/hooks/use-api";
 import { plans as plansData, comparisonData } from "@/data/content";
+import { applyFunnelLocationParams, readFunnelLocation } from "@/utils/funnel-location";
 
 const categories = [
   { id: "all", label: "All Plans" },
@@ -37,7 +38,10 @@ const prepaidTenures = [3, 6, 12] as const;
 
 export default function PlansPage() {
   const searchParams = useSearchParams();
-  const pincode = searchParams.get("pincode") || "";
+  const funnelLocation = readFunnelLocation(searchParams);
+  const pincode = funnelLocation.pincode || "";
+  const city = funnelLocation.city || "";
+  const locality = funnelLocation.locality || "";
   const plansQuery = usePlans();
   const [selectedPersona, setSelectedPersona] = useState<(typeof personas)[number]["id"]>("home");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -45,6 +49,15 @@ export default function PlansPage() {
   const [prepaidMonths, setPrepaidMonths] = useState<(typeof prepaidTenures)[number]>(12);
   const [comparePlanIds, setComparePlanIds] = useState<string[]>([]);
   const [isCompareOpen, setIsCompareOpen] = useState(false);
+
+  const buildCheckoutHref = (planId: string) => {
+    const params = new URLSearchParams({
+      plan: planId,
+      tenure: String(getTenureMonths()),
+    });
+    applyFunnelLocationParams(params, funnelLocation);
+    return `/checkout?${params.toString()}`;
+  };
 
   const allPlans = plansQuery.data && plansQuery.data.length > 0 ? plansQuery.data : plansData;
 
@@ -120,7 +133,7 @@ export default function PlansPage() {
           </p>
           {pincode && (
             <p className="mt-2 text-small text-accent">
-              Showing plans available for pincode: {pincode}
+              Showing plans available for{locality ? ` ${locality},` : ""}{city ? ` ${city}` : ""}: {pincode}
             </p>
           )}
         </div>
@@ -304,9 +317,7 @@ export default function PlansPage() {
                       billing_mode: billingMode,
                     });
                   }}
-                  href={`/checkout?plan=${plan.id}&tenure=${encodeURIComponent(
-                    String(getTenureMonths())
-                  )}${pincode ? `&pincode=${encodeURIComponent(pincode)}` : ""}`}
+                  href={buildCheckoutHref(plan.id)}
                   className={`w-full inline-flex items-center justify-center px-6 py-3 font-semibold rounded-btn transition-colors ${
                     plan.badge === "Most Popular"
                       ? "bg-primary text-white hover:bg-primary/90"
@@ -459,9 +470,7 @@ export default function PlansPage() {
 
                           <div className="mt-5">
                             <Link
-                              href={`/checkout?plan=${plan.id}&tenure=${encodeURIComponent(
-                                String(getTenureMonths())
-                              )}${pincode ? `&pincode=${encodeURIComponent(pincode)}` : ""}`}
+                              href={buildCheckoutHref(plan.id)}
                               onClick={() => {
                                 track("plan_selected", {
                                   plan_id: plan.id,
