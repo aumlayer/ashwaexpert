@@ -167,33 +167,38 @@ Frontend uses:
 
 ---
 
-## 5) What is still pending
+## 5) Current Status (Updated 2026-01-29)
 
 ### 5.1 Git branch + push
-- A branch creation/push was prepared earlier, but not executed yet.
-- Pending task: create branch `frontend` and push current changes.
+- ✅ Branch `frontend` created and pushed to `origin/frontend`
+- ✅ All changes committed
 
-### 5.2 Pages still using mock/static/simulated behavior
-These remain **not wired** (or only partially wired) because hooks and/or backend endpoints are missing or not yet implemented:
+### 5.2 Portal Pages - All Wired
+- ✅ `/app/profile` - Wired to `GET/PUT /subscribers/me` via `useSubscriberMe()` and `useUpdateSubscriberMe()`
+- ✅ `/app/addons` - Wired to `GET /addons` with proper loading/error/empty states, shows "coming soon" if 404
+- ✅ `/app/referrals` - Wired to `POST /coupons/referrals/generate` via `useReferralCode()`, shows "coming soon" for history
 
-#### Portal
-- `/app/profile` (still uses simulated save)
-  - File: `apps/web/src/app/(portal)/app/profile/page.tsx`
-- `/app/addons` (static addon catalog + TODO)
-  - File: `apps/web/src/app/(portal)/app/addons/page.tsx`
-- `/app/referrals` (static mock referral code/history)
-  - File: `apps/web/src/app/(portal)/app/referrals/page.tsx`
+### 5.3 Admin Pages - Wired or Explicit Not-Implemented States
+- ✅ `/admin` (Dashboard) - Aggregates real data from leads, tickets, subscriptions, invoices APIs
+- ✅ `/admin/leads` - Wired to `GET /leads`
+- ✅ `/admin/subscriptions` - Wired to `GET /subscriptions/admin/subscriptions`
+- ✅ `/admin/tickets` - Wired to `GET /tickets/admin`
+- ✅ `/admin/payments` - Wired to `GET /billing/admin/invoices`
+- ✅ `/admin/content` - Case studies wired to `GET /content/manage/case-studies`, FAQs/blogs show "not implemented"
+- ⚠️ `/admin/analytics` - Shows explicit "API not available" banner with sample data for UI preview
+- ⚠️ `/admin/settings` - Shows explicit "persistence not available" banner
 
-#### Admin
-- `/admin/content` (explicitly sample data)
-  - File: `apps/web/src/app/(admin)/admin/content/page.tsx`
-- `/admin/analytics` (explicitly sample data)
-  - File: `apps/web/src/app/(admin)/admin/analytics/page.tsx`
-- `/admin/settings` (explicitly not persisted)
-  - File: `apps/web/src/app/(admin)/admin/settings/page.tsx`
+### 5.4 Public Pages
+- ✅ Hero section uses real `useCheckAvailability()` hook
+- ✅ Top Plans section uses `usePlans()` with static fallback
+- ✅ City SEO pages (`/city/[slug]/plans`) with JSON-LD and real plans API
 
-#### Public marketing sections
-Some homepage sections still rely on static content (`@/data/content`) or simulated flows (e.g., pincode check delays in some components). These were audited but not part of the latest portal push.
+### 5.5 UI Enhancements Completed
+- ✅ Shimmer animation on Skeleton component
+- ✅ Hover lift effect on Card component
+- ✅ Enhanced EmptyState with gradient icon and fade-in animation
+- ✅ Staggered entrance animations on plans, testimonials, hero stats
+- ✅ Slide-up animation on compare drawer and modals
 
 ---
 
