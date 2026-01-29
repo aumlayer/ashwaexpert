@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { Star, Quote, BadgeCheck } from "lucide-react";
-import { Card, CardContent } from "@/components/ui";
+import { Card, CardContent, AnimatedStat } from "@/components/ui";
 import { testimonials } from "@/data/content";
 import { useTestimonials } from "@/hooks/use-api";
 
@@ -94,19 +94,27 @@ export function TestimonialsSection() {
         {/* Trust Stats */}
         <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           <div>
-            <p className="text-h2 font-heading font-bold text-primary">4.8★</p>
+            <p className="text-h2 font-heading font-bold text-primary">
+              <AnimatedStat value="4.8★" />
+            </p>
             <p className="text-small text-foreground-muted mt-1">Average Rating</p>
           </div>
           <div>
-            <p className="text-h2 font-heading font-bold text-primary">50K+</p>
+            <p className="text-h2 font-heading font-bold text-primary">
+              <AnimatedStat value="50000+" />
+            </p>
             <p className="text-small text-foreground-muted mt-1">Happy Customers</p>
           </div>
           <div>
-            <p className="text-h2 font-heading font-bold text-primary">100+</p>
+            <p className="text-h2 font-heading font-bold text-primary">
+              <AnimatedStat value="100+" />
+            </p>
             <p className="text-small text-foreground-muted mt-1">Cities Served</p>
           </div>
           <div>
-            <p className="text-h2 font-heading font-bold text-primary">98%</p>
+            <p className="text-h2 font-heading font-bold text-primary">
+              <AnimatedStat value="98%" />
+            </p>
             <p className="text-small text-foreground-muted mt-1">Renewal Rate</p>
           </div>
         </div>

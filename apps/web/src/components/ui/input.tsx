@@ -28,10 +28,11 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           ref={ref}
           className={cn(
             "flex h-11 w-full rounded-btn border border-border bg-surface px-4 py-2 text-body text-foreground placeholder:text-foreground-muted",
-            "transition-colors duration-micro ease-out-expo",
-            "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary",
-            "disabled:cursor-not-allowed disabled:opacity-50",
-            error && "border-error focus:ring-error/50 focus:border-error",
+            "transition-all duration-standard ease-out-expo",
+            "hover:border-primary/50 hover:shadow-sm",
+            "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary focus:shadow-md",
+            "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border disabled:hover:shadow-none",
+            error && "border-error focus:ring-error/50 focus:border-error hover:border-error/50",
             className
           )}
           {...props}

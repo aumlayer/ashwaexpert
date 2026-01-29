@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { ArrowRight, CheckCircle2, Shield, Wrench, RefreshCw, Clock } from "lucide-react";
-import { Button, Input } from "@/components/ui";
+import { Button, Input, AnimatedStat } from "@/components/ui";
 import { track } from "@/utils/analytics";
 import { heroContent, images, siteConfig } from "@/data/content";
 import { useCheckAvailability } from "@/hooks/use-api";
@@ -180,7 +180,9 @@ export function HeroSection() {
                 className="bg-white/10 backdrop-blur-sm rounded-card p-6 text-center border border-white/20 animate-fade-in-up hover:bg-white/15 transition-colors"
                 style={{ animationDelay: `${300 + index * 100}ms`, animationFillMode: "both" }}
               >
-                <p className="text-h2 font-heading font-bold text-white">{stat.value}</p>
+                <p className="text-h2 font-heading font-bold text-white">
+                  <AnimatedStat value={stat.value} />
+                </p>
                 <p className="text-small text-white/80 mt-1">{stat.label}</p>
               </div>
             ))}
