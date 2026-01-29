@@ -2,6 +2,7 @@
 
 import type React from "react";
 import Link from "next/link";
+import { Inbox } from "lucide-react";
 import { Button } from "./button";
 
 export function EmptyState({
@@ -24,26 +25,30 @@ export function EmptyState({
     href: string;
   };
 }) {
-  const content = (
-    <div className="text-center py-10">
-      {Icon ? (
-        <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-surface-2 flex items-center justify-center">
-          <Icon className="h-6 w-6 text-foreground-muted" />
-        </div>
+  const IconComponent = Icon || Inbox;
+
+  return (
+    <div className="text-center py-12 px-4 animate-fade-in">
+      <div className="mx-auto mb-5 w-16 h-16 rounded-full bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center ring-1 ring-border">
+        <IconComponent className="h-7 w-7 text-primary" />
+      </div>
+
+      <p className="text-h4 font-heading font-semibold text-foreground">{title}</p>
+      {message ? (
+        <p className="text-body text-foreground-muted mt-2 max-w-sm mx-auto">{message}</p>
       ) : null}
 
-      <p className="text-body font-medium text-foreground">{title}</p>
-      {message ? <p className="text-small text-foreground-muted mt-1">{message}</p> : null}
-
       {primaryCta || secondaryCta ? (
-        <div className="mt-5 flex flex-col sm:flex-row items-center justify-center gap-3">
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
           {primaryCta ? (
             primaryCta.href ? (
               <Link href={primaryCta.href} className="inline-flex">
-                <Button>{primaryCta.label}</Button>
+                <Button size="lg">{primaryCta.label}</Button>
               </Link>
             ) : (
-              <Button onClick={primaryCta.onClick}>{primaryCta.label}</Button>
+              <Button size="lg" onClick={primaryCta.onClick}>
+                {primaryCta.label}
+              </Button>
             )
           ) : null}
 
@@ -52,7 +57,7 @@ export function EmptyState({
               href={secondaryCta.href}
               target="_blank"
               rel="noreferrer"
-              className="text-small text-primary font-medium hover:underline"
+              className="text-body text-primary font-medium hover:underline transition-colors"
             >
               {secondaryCta.label}
             </a>
@@ -61,6 +66,4 @@ export function EmptyState({
       ) : null}
     </div>
   );
-
-  return content;
 }

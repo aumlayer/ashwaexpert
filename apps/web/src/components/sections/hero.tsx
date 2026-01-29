@@ -174,10 +174,11 @@ export function HeroSection() {
 
           {/* Stats Grid */}
           <div className="hidden lg:grid grid-cols-2 gap-4">
-            {heroContent.stats.map((stat) => (
+            {heroContent.stats.map((stat, index) => (
               <div
                 key={stat.label}
-                className="bg-white/10 backdrop-blur-sm rounded-card p-6 text-center border border-white/20"
+                className="bg-white/10 backdrop-blur-sm rounded-card p-6 text-center border border-white/20 animate-fade-in-up hover:bg-white/15 transition-colors"
+                style={{ animationDelay: `${300 + index * 100}ms`, animationFillMode: "both" }}
               >
                 <p className="text-h2 font-heading font-bold text-white">{stat.value}</p>
                 <p className="text-small text-white/80 mt-1">{stat.label}</p>

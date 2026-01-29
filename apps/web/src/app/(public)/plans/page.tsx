@@ -218,7 +218,7 @@ export default function PlansPage() {
 
         {/* Plans Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {filteredPlans.map((plan) => (
+          {filteredPlans.map((plan, index) => (
             (() => {
               const pricing = getPricingForPlan(plan);
               const isSelectedForCompare = comparePlanIds.includes(plan.id);
@@ -227,11 +227,12 @@ export default function PlansPage() {
               return (
             <Card
               key={plan.id}
-              className={`relative flex flex-col ${
+              className={`relative flex flex-col animate-fade-in-up ${
                 plan.badge === "Most Popular"
                   ? "border-primary shadow-lg ring-2 ring-primary/20"
                   : ""
               }`}
+              style={{ animationDelay: `${index * 75}ms`, animationFillMode: "both" }}
               onClick={() => handlePlanClick(plan.id)}
             >
               {plan.badge && (
@@ -351,7 +352,7 @@ export default function PlansPage() {
         </div>
 
         {comparePlanIds.length === 2 && (
-          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(720px,calc(100vw-2rem))]">
+          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(720px,calc(100vw-2rem))] animate-slide-up">
             <div className="bg-surface border border-border shadow-lg rounded-card p-4 flex flex-col sm:flex-row gap-3 items-center justify-between">
               <div className="text-small text-foreground-muted text-center sm:text-left">
                 Comparing:
@@ -385,12 +386,12 @@ export default function PlansPage() {
 
         {isCompareOpen && comparePlans.length === 2 && (
           <div
-            className="fixed inset-0 z-[60] bg-foreground/40"
+            className="fixed inset-0 z-[60] bg-foreground/40 animate-fade-in"
             onClick={() => setIsCompareOpen(false)}
           >
             <div className="absolute inset-0 flex items-end sm:items-center justify-center p-4">
               <div
-                className="w-full max-w-4xl bg-surface rounded-card shadow-lg border border-border overflow-hidden"
+                className="w-full max-w-4xl bg-surface rounded-card shadow-lg border border-border overflow-hidden animate-slide-up"
                 role="dialog"
                 aria-modal="true"
                 aria-label="Compare plans"

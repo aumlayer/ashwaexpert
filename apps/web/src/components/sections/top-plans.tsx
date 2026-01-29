@@ -30,14 +30,15 @@ export function TopPlansSection() {
 
         {/* Plans Grid */}
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
-          {topPlans.map((plan) => (
+          {topPlans.map((plan, index) => (
             <Card
               key={plan.id}
-              className={`relative ${
+              className={`relative animate-fade-in-up ${
                 plan.badge === "Most Popular"
                   ? "border-primary shadow-lg scale-[1.02]"
                   : ""
               }`}
+              style={{ animationDelay: `${index * 100}ms`, animationFillMode: "both" }}
             >
               {plan.badge && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">

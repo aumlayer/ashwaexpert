@@ -30,8 +30,12 @@ export function TestimonialsSection() {
 
         {/* Testimonials Grid */}
         <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-          {testimonialsForUi.map((testimonial) => (
-            <Card key={testimonial.id} className="relative overflow-hidden">
+          {testimonialsForUi.map((testimonial, index) => (
+            <Card
+              key={testimonial.id}
+              className="relative overflow-hidden animate-fade-in-up"
+              style={{ animationDelay: `${index * 100}ms`, animationFillMode: "both" }}
+            >
               <CardContent className="pt-6">
                 {/* Quote Icon */}
                 <Quote className="absolute top-4 right-4 h-8 w-8 text-primary/10" />
