@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -39,7 +39,7 @@ const personaPlanIds: Record<string, string[] | "all"> = {
 type BillingMode = "monthly" | "prepaid";
 const prepaidTenures = [3, 6, 12] as const;
 
-export default function PlansPage() {
+function PlansPageContent() {
   const searchParams = useSearchParams();
   const funnelLocation = readFunnelLocation(searchParams);
   const pincode = funnelLocation.pincode || "";
@@ -589,5 +589,13 @@ export default function PlansPage() {
         )}
       </div>
     </section>
+  );
+}
+
+export default function PlansPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>}>
+      <PlansPageContent />
+    </Suspense>
   );
 }

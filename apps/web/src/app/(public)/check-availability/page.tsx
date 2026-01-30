@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { CheckCircle2, XCircle, MapPin, ArrowRight } from "lucide-react";
 import { Button, Input, Card, CardContent } from "@/components/ui";
@@ -10,7 +10,7 @@ import { buildFunnelLocationQuery, readFunnelLocation } from "@/utils/funnel-loc
 
 type AvailabilityStatus = "idle" | "checking" | "available" | "unavailable";
 
-export default function CheckAvailabilityPage() {
+function CheckAvailabilityPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const initialLocation = readFunnelLocation(searchParams);
@@ -231,5 +231,13 @@ export default function CheckAvailabilityPage() {
         </div>
       </div>
     </section>
+  );
+}
+
+export default function CheckAvailabilityPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>}>
+      <CheckAvailabilityPageContent />
+    </Suspense>
   );
 }

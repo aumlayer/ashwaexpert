@@ -1,12 +1,13 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2, Calendar, Phone, MessageCircle, Download } from "lucide-react";
 import { Button, Card, CardContent, EmptyState } from "@/components/ui";
 import { siteConfig } from "@/data/content";
 
-export default function ConfirmationPage() {
+function ConfirmationPageContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("order");
 
@@ -188,5 +189,13 @@ export default function ConfirmationPage() {
         </div>
       </div>
     </section>
+  );
+}
+
+export default function ConfirmationPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>}>
+      <ConfirmationPageContent />
+    </Suspense>
   );
 }

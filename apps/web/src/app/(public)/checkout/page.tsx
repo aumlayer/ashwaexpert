@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Calendar, Clock, MapPin, CreditCard, Shield, Check, MessageCircle } from "lucide-react";
 import { Button, Input, Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui";
@@ -18,7 +18,7 @@ const timeSlots = [
 
 type CheckoutStep = "details" | "schedule" | "payment" | "confirm";
 
-export default function CheckoutPage() {
+function CheckoutPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const planId = searchParams.get("plan") || "advanced-ro-uv";
@@ -482,5 +482,13 @@ export default function CheckoutPage() {
         pincode={formData.pincode || pincode}
       />
     </section>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>}>
+      <CheckoutPageContent />
+    </Suspense>
   );
 }

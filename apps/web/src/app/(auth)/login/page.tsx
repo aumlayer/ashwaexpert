@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -9,7 +9,7 @@ import { Button, Input, Card, CardContent, CardHeader, CardTitle } from "@/compo
 import { useSendOTP, useVerifyOTP } from "@/hooks/use-auth";
 import { track } from "@/utils/analytics";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo") || "/app";
@@ -280,5 +280,13 @@ export default function LoginPage() {
         <span>256-bit SSL</span>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="w-full flex items-center justify-center py-20"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>}>
+      <LoginPageContent />
+    </Suspense>
   );
 }
