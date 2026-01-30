@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
   Search,
@@ -17,6 +18,16 @@ import {
 } from "lucide-react";
 import { Button, Skeleton, EmptyState } from "@/components/ui";
 import { useLeads } from "@/hooks/use-admin";
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
+};
+
+const rowVariants = {
+  hidden: { opacity: 0, x: -20 },
+  visible: { opacity: 1, x: 0 },
+};
 
 const statusColors: Record<string, string> = {
   new: "bg-blue-500/20 text-blue-400",
@@ -67,9 +78,19 @@ export default function LeadsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      className="space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <motion.div
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
         <div>
           <h1 className="text-h2 font-heading font-bold">Leads</h1>
           <p className="text-body text-gray-400">
@@ -77,20 +98,29 @@ export default function LeadsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="border-[#334155] text-gray-300 hover:bg-[#334155]">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Lead
-          </Button>
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <Button variant="outline" className="border-[#334155] text-gray-300 hover:bg-[#334155]">
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+          </motion.div>
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Lead
+            </Button>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-[#1E293B] rounded-lg border border-[#334155]">
+      <motion.div
+        className="flex flex-col sm:flex-row gap-4"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-[#1E293B] rounded-lg border border-[#334155] focus-within:border-primary transition-colors">
           <Search className="h-4 w-4 text-gray-400" />
           <input
             type="text"
@@ -100,42 +130,64 @@ export default function LeadsPage() {
             className="flex-1 bg-transparent border-none outline-none text-small text-white placeholder:text-gray-500"
           />
         </div>
-        <div className="flex gap-2">
-          {["all", "new", "contacted", "scheduled", "converted", "lost"].map((status) => (
-            <button
+        <div className="flex gap-2 flex-wrap">
+          {["all", "new", "contacted", "scheduled", "converted", "lost"].map((status, index) => (
+            <motion.button
               key={status}
               onClick={() => setStatusFilter(status)}
-              className={`px-3 py-2 rounded-lg text-small font-medium transition-colors ${
+              className={`px-3 py-2 rounded-lg text-small font-medium transition-all duration-200 ${
                 statusFilter === status
-                  ? "bg-primary text-white"
+                  ? "bg-primary text-white shadow-lg shadow-primary/20"
                   : "bg-[#1E293B] text-gray-400 hover:text-white border border-[#334155]"
               }`}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 + index * 0.03 }}
             >
               {status.charAt(0).toUpperCase() + status.slice(1)}
-            </button>
+            </motion.button>
           ))}
         </div>
-      </div>
+      </motion.div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+      <motion.div
+        className="grid grid-cols-2 sm:grid-cols-5 gap-4"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
         {[
           { label: "Total", count: leadsForUi.length, color: "text-white" },
           { label: "New", count: leadsForUi.filter((l) => l.status === "new").length, color: "text-blue-400" },
           { label: "Contacted", count: leadsForUi.filter((l) => l.status === "contacted").length, color: "text-yellow-400" },
           { label: "Scheduled", count: leadsForUi.filter((l) => l.status === "scheduled").length, color: "text-purple-400" },
           { label: "Converted", count: leadsForUi.filter((l) => l.status === "converted").length, color: "text-green-400" },
-        ].map((stat) => (
-          <div key={stat.label} className="bg-[#1E293B] rounded-lg p-4 border border-[#334155]">
+        ].map((stat, index) => (
+          <motion.div
+            key={stat.label}
+            className="bg-[#1E293B] rounded-lg p-4 border border-[#334155] hover:border-primary/30 transition-colors cursor-pointer"
+            variants={rowVariants}
+            whileHover={{ scale: 1.02, y: -2 }}
+          >
             <p className="text-small text-gray-400">{stat.label}</p>
             {leadsQuery.isLoading ? (
               <Skeleton className="h-8 w-14 mt-2 bg-white/10" />
             ) : (
-              <p className={`text-h3 font-heading font-bold ${stat.color}`}>{stat.count}</p>
+              <motion.p
+                className={`text-h3 font-heading font-bold ${stat.color}`}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2 + index * 0.05, type: "spring" }}
+              >
+                {stat.count}
+              </motion.p>
             )}
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       {leadsQuery.isLoading ? (
         <div className="bg-[#1E293B] rounded-xl border border-[#334155] overflow-hidden">
@@ -275,6 +327,6 @@ export default function LeadsPage() {
         </div>
         </div>
       ) : null}
-    </div>
+    </motion.div>
   );
 }
