@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { StickyCTA, WhatsAppButton } from "@/components/ui";
+import { TrustMarquee } from "@/components/ui/marquee";
 import { HeroSection } from "@/components/sections/hero";
 import { HowItWorksSection } from "@/components/sections/how-it-works";
 import { TopPlansSection } from "@/components/sections/top-plans";
@@ -19,6 +20,7 @@ export default function HomePage() {
   return (
     <>
       <HeroSection />
+      <TrustMarquee />
       <HowItWorksSection />
       <TopPlansSection />
       <TrustSection />

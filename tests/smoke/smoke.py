@@ -66,7 +66,7 @@ def main() -> int:
         "phone": "+910000000000",
         "company": "Smoke",
         "message": "smoke",
-        "source": "smoke",
+        "source": "other",
     }
     status, payload = _request("POST", _urljoin(base_url, "/api/v1/leads"), body=lead_req)
     if status not in (200, 201):

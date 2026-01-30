@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { Check } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui";
+import { CardContent, CardHeader, CardTitle, Badge } from "@/components/ui";
+import { TiltCard } from "@/components/ui/tilt-card";
+import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ui/scroll-reveal";
 import { usePlans } from "@/hooks/use-api";
 import { plans as plansData } from "@/data/content";
 
@@ -18,28 +20,33 @@ export function TopPlansSection() {
     <section className="py-18 lg:py-24 bg-surface-2">
       <div className="mx-auto max-w-container px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="text-center max-w-2xl mx-auto">
-          <h2 className="text-h2 font-heading font-bold text-foreground">
-            Choose Your Plan
-          </h2>
-          <p className="mt-4 text-body-lg text-foreground-muted">
-            All plans include installation, maintenance, and filter replacement.
-            No hidden costs.
-          </p>
-        </div>
+        <ScrollReveal animation="fadeUp">
+          <div className="text-center max-w-2xl mx-auto">
+            <span className="inline-block text-primary font-semibold text-small uppercase tracking-wider mb-2">
+              Subscription Plans
+            </span>
+            <h2 className="text-h2 font-heading font-bold text-foreground">
+              Choose Your Plan
+            </h2>
+            <p className="mt-4 text-body-lg text-foreground-muted">
+              All plans include installation, maintenance, and filter replacement.
+              No hidden costs.
+            </p>
+          </div>
+        </ScrollReveal>
 
         {/* Plans Grid */}
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
-          {topPlans.map((plan, index) => (
-            <Card
-              key={plan.id}
-              className={`relative animate-fade-in-up ${
-                plan.badge === "Most Popular"
-                  ? "border-primary shadow-lg scale-[1.02]"
-                  : ""
-              }`}
-              style={{ animationDelay: `${index * 100}ms`, animationFillMode: "both" }}
-            >
+        <StaggerContainer className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8" staggerDelay={0.15}>
+          {topPlans.map((plan) => (
+            <StaggerItem key={plan.id}>
+              <TiltCard
+                className={`relative h-full ${
+                  plan.badge === "Most Popular"
+                    ? "border-primary shadow-lg ring-2 ring-primary/20"
+                    : ""
+                }`}
+                tiltMaxAngle={10}
+              >
               {plan.badge && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <Badge variant="accent">{plan.badge}</Badge>
@@ -82,9 +89,10 @@ export function TopPlansSection() {
                   Subscribe Now
                 </Link>
               </CardContent>
-            </Card>
+              </TiltCard>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerContainer>
 
         {/* View All Plans Link */}
         <div className="mt-10 text-center">
