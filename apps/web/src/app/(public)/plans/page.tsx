@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useSearchParams } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { Check, HelpCircle, ArrowRight, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui";
+import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ui/scroll-reveal";
+import { TiltCard } from "@/components/ui/tilt-card";
+import { AnimatedButton } from "@/components/ui/animated-button";
 import { track } from "@/utils/analytics";
 import { usePlans } from "@/hooks/use-api";
 import { plans as plansData, comparisonData } from "@/data/content";
@@ -120,38 +123,65 @@ export default function PlansPage() {
   };
 
   return (
-    <section className="py-18 lg:py-24 bg-surface-2">
+    <section className="py-18 lg:py-24 bg-surface-2 overflow-hidden">
       <div className="mx-auto max-w-container px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <h1 className="text-h1 font-heading font-bold text-foreground">
-            Choose Your Plan
-          </h1>
-          <p className="mt-4 text-body-lg text-foreground-muted">
-            All plans include free installation, maintenance, and filter
-            replacement. No hidden costs.
-          </p>
-          {pincode && (
-            <p className="mt-2 text-small text-accent">
-              Showing plans available for{locality ? ` ${locality},` : ""}{city ? ` ${city}` : ""}: {pincode}
-            </p>
-          )}
-        </div>
+        <ScrollReveal animation="fadeUp">
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <motion.h1
+              className="text-h1 font-heading font-bold text-foreground"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              Choose Your Plan
+            </motion.h1>
+            <motion.p
+              className="mt-4 text-body-lg text-foreground-muted"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+            >
+              All plans include free installation, maintenance, and filter
+              replacement. No hidden costs.
+            </motion.p>
+            {pincode && (
+              <motion.p
+                className="mt-2 text-small text-accent"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+              >
+                Showing plans available for{locality ? ` ${locality},` : ""}{city ? ` ${city}` : ""}: {pincode}
+              </motion.p>
+            )}
+          </div>
+        </ScrollReveal>
 
-        <div className="flex flex-col gap-6 mb-10">
+        <motion.div
+          className="flex flex-col gap-6 mb-10"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
           <div className="flex flex-wrap justify-center gap-2">
-            {personas.map((persona) => (
-              <button
+            {personas.map((persona, index) => (
+              <motion.button
                 key={persona.id}
                 onClick={() => setSelectedPersona(persona.id)}
-                className={`px-4 py-2 rounded-btn text-small font-medium transition-colors ${
+                className={`px-4 py-2 rounded-btn text-small font-medium transition-all duration-300 ${
                   selectedPersona === persona.id
-                    ? "bg-primary text-white"
-                    : "bg-surface text-foreground-muted hover:bg-surface-2 border border-border"
+                    ? "bg-primary text-white shadow-md scale-105"
+                    : "bg-surface text-foreground-muted hover:bg-surface-2 border border-border hover:scale-105"
                 }`}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
               >
                 {persona.label}
-              </button>
+              </motion.button>
             ))}
           </div>
 
@@ -179,45 +209,68 @@ export default function PlansPage() {
               </button>
             </div>
 
+            <AnimatePresence>
             {billingMode === "prepaid" && (
-              <div className="flex flex-wrap justify-center gap-2">
-                {prepaidTenures.map((m) => (
-                  <button
+              <motion.div
+                className="flex flex-wrap justify-center gap-2"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                {prepaidTenures.map((m, index) => (
+                  <motion.button
                     key={m}
                     onClick={() => setPrepaidMonths(m)}
-                    className={`px-4 py-2 rounded-btn text-small font-medium transition-colors ${
+                    className={`px-4 py-2 rounded-btn text-small font-medium transition-all duration-300 ${
                       prepaidMonths === m
-                        ? "bg-accent text-white"
+                        ? "bg-accent text-white shadow-md"
                         : "bg-surface text-foreground-muted hover:bg-surface-2 border border-border"
                     }`}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: index * 0.05 }}
                   >
                     {m} months
-                  </button>
+                  </motion.button>
                 ))}
-              </div>
+              </motion.div>
             )}
+          </AnimatePresence>
           </div>
-        </div>
+        </motion.div>
 
         {/* Category Filter */}
-        <div className="flex flex-wrap justify-center gap-2 mb-10">
-          {categories.map((cat) => (
-            <button
+        <motion.div
+          className="flex flex-wrap justify-center gap-2 mb-10"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+        >
+          {categories.map((cat, index) => (
+            <motion.button
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}
-              className={`px-4 py-2 rounded-btn text-small font-medium transition-colors ${
+              className={`px-4 py-2 rounded-btn text-small font-medium transition-all duration-300 ${
                 selectedCategory === cat.id
-                  ? "bg-primary text-white"
+                  ? "bg-primary text-white shadow-md"
                   : "bg-surface text-foreground-muted hover:bg-surface-2 border border-border"
               }`}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 + index * 0.05 }}
             >
               {cat.label}
-            </button>
+            </motion.button>
           ))}
-        </div>
+        </motion.div>
 
         {/* Plans Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" staggerDelay={0.1}>
           {filteredPlans.map((plan, index) => (
             (() => {
               const pricing = getPricingForPlan(plan);
@@ -225,16 +278,23 @@ export default function PlansPage() {
               const isCompareDisabled = !isSelectedForCompare && comparePlanIds.length >= 2;
 
               return (
-            <Card
-              key={plan.id}
-              className={`relative flex flex-col animate-fade-in-up ${
-                plan.badge === "Most Popular"
-                  ? "border-primary shadow-lg ring-2 ring-primary/20"
-                  : ""
-              }`}
-              style={{ animationDelay: `${index * 75}ms`, animationFillMode: "both" }}
-              onClick={() => handlePlanClick(plan.id)}
-            >
+            <StaggerItem key={plan.id}>
+              <TiltCard
+                className={`h-full ${
+                  plan.badge === "Most Popular"
+                    ? "ring-2 ring-primary/30"
+                    : ""
+                }`}
+                glareEnabled={plan.badge === "Most Popular"}
+              >
+                <Card
+                  className={`relative flex flex-col h-full ${
+                    plan.badge === "Most Popular"
+                      ? "border-primary shadow-lg"
+                      : ""
+                  }`}
+                  onClick={() => handlePlanClick(plan.id)}
+                >
               {plan.badge && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <Badge variant={plan.badge === "Most Popular" ? "accent" : "success"}>
@@ -319,41 +379,55 @@ export default function PlansPage() {
                     });
                   }}
                   href={buildCheckoutHref(plan.id)}
-                  className={`w-full inline-flex items-center justify-center px-6 py-3 font-semibold rounded-btn transition-colors ${
-                    plan.badge === "Most Popular"
-                      ? "bg-primary text-white hover:bg-primary/90"
-                      : "border border-primary text-primary hover:bg-primary/5"
-                  }`}
+                  className="w-full"
                 >
-                  Subscribe Now
+                  <AnimatedButton
+                    variant={plan.badge === "Most Popular" ? "primary" : "outline"}
+                    className="w-full"
+                  >
+                    Subscribe Now
+                  </AnimatedButton>
                 </Link>
               </CardContent>
             </Card>
+              </TiltCard>
+            </StaggerItem>
               );
             })()
           ))}
-        </div>
+        </StaggerContainer>
 
         {/* Help Section */}
-        <div className="mt-16 text-center">
-          <div className="inline-flex items-center gap-2 text-foreground-muted">
-            <HelpCircle className="h-5 w-5" />
-            <span>Not sure which plan is right for you?</span>
-          </div>
-          <div className="mt-4">
-            <Link
-              href="/recommend"
-              className="inline-flex items-center justify-center px-6 py-3 border border-primary text-primary font-semibold rounded-btn hover:bg-primary/5 transition-colors"
+        <ScrollReveal animation="fadeUp" delay={0.2}>
+          <div className="mt-16 text-center">
+            <motion.div
+              className="inline-flex items-center gap-2 text-foreground-muted"
+              whileHover={{ scale: 1.02 }}
             >
-              Take Our Quiz
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Link>
+              <HelpCircle className="h-5 w-5" />
+              <span>Not sure which plan is right for you?</span>
+            </motion.div>
+            <div className="mt-4">
+              <Link href="/recommend">
+                <AnimatedButton variant="outline" size="lg">
+                  Take Our Quiz
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </AnimatedButton>
+              </Link>
+            </div>
           </div>
-        </div>
+        </ScrollReveal>
 
-        {comparePlanIds.length === 2 && (
-          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(720px,calc(100vw-2rem))] animate-slide-up">
-            <div className="bg-surface border border-border shadow-lg rounded-card p-4 flex flex-col sm:flex-row gap-3 items-center justify-between">
+        <AnimatePresence>
+          {comparePlanIds.length === 2 && (
+          <motion.div
+            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(720px,calc(100vw-2rem))]"
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 100 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          >
+            <div className="bg-surface border border-border shadow-xl rounded-card p-4 flex flex-col sm:flex-row gap-3 items-center justify-between backdrop-blur-sm">
               <div className="text-small text-foreground-muted text-center sm:text-left">
                 Comparing:
                 <span className="text-foreground font-semibold"> {comparePlanIds[0]}</span>
@@ -369,20 +443,23 @@ export default function PlansPage() {
                   Compare
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </button>
-                <button
+                <motion.button
                   type="button"
                   onClick={() => {
                     setComparePlanIds([]);
                     setIsCompareOpen(false);
                   }}
                   className="inline-flex items-center justify-center px-5 py-3 border border-border text-foreground font-semibold rounded-btn hover:bg-surface-2 transition-colors"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   Clear
-                </button>
+                </motion.button>
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
 
         {isCompareOpen && comparePlans.length === 2 && (
           <div
