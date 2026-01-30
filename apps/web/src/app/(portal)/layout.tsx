@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   CreditCard,
@@ -33,8 +33,58 @@ export default function PortalLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { user, logout, isLoggingOut } = useAuth();
+  const router = useRouter();
+  const { user, logout, isLoggingOut, isLoading, isAuthenticated } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const returnTo = pathname || "/app";
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!isAuthenticated) {
+      router.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+      return;
+    }
+    if (user?.role === "admin") {
+      router.replace("/admin");
+      return;
+    }
+    if (user?.role === "technician") {
+      router.replace("/tech");
+    }
+  }, [isAuthenticated, isLoading, router, returnTo, user?.role]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-surface-2 flex items-center justify-center">
+        <div className="text-foreground-muted text-small">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-surface-2 flex items-center justify-center">
+        <div className="text-foreground-muted text-small">Redirecting...</div>
+      </div>
+    );
+  }
+
+  if (user?.role === "admin") {
+    return (
+      <div className="min-h-screen bg-surface-2 flex items-center justify-center">
+        <div className="text-foreground-muted text-small">Redirecting...</div>
+      </div>
+    );
+  }
+
+  if (user?.role === "technician") {
+    return (
+      <div className="min-h-screen bg-surface-2 flex items-center justify-center">
+        <div className="text-foreground-muted text-small">Redirecting...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-surface-2">

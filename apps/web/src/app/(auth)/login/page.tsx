@@ -2,19 +2,17 @@
 
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Phone, Shield, ArrowLeft, RefreshCw } from "lucide-react";
-import { Button, Input, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
+import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { useSendOTP, useVerifyOTP } from "@/hooks/use-auth";
 import { track } from "@/utils/analytics";
 
 function LoginPageContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const returnTo = searchParams.get("returnTo") || "/app";
+  searchParams.get("returnTo") || "/app";
 
-  const [phone, setPhone] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [countdown, setCountdown] = useState(0);
@@ -22,6 +20,14 @@ function LoginPageContent() {
 
   const sendOTP = useSendOTP();
   const verifyOTP = useVerifyOTP();
+
+  const identifierTrimmed = identifier.trim();
+  const isEmail = identifierTrimmed.includes("@");
+  const isAshvaAdminEmail =
+    isEmail && identifierTrimmed.toLowerCase().endsWith("@ashvaexperts.com");
+  const isValidPhone = /^\d{10}$/.test(identifierTrimmed);
+  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifierTrimmed);
+  const isValidIdentifier = isEmail ? isValidEmail : isValidPhone;
 
   // Countdown timer for resend
   useEffect(() => {
@@ -33,13 +39,13 @@ function LoginPageContent() {
 
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (phone.length !== 10) return;
+    if (!isValidIdentifier) return;
 
     setError(null);
-    track("login_otp_requested", { phone: phone.slice(0, 4) + "******" });
+    track("login_otp_requested", { identifier: identifierTrimmed.slice(0, 4) + "******" });
 
     try {
-      const response = await sendOTP.mutateAsync({ phone, type: "login" });
+      const response = await sendOTP.mutateAsync({ identifier: identifierTrimmed, type: "login" });
       if (response.success) {
         setStep("otp");
         setCountdown(response.retryAfter || 30);
@@ -62,17 +68,18 @@ function LoginPageContent() {
     track("login_otp_verify_started", {});
 
     try {
-      const response = await verifyOTP.mutateAsync({ phone, otp, type: "login" });
+      const response = await verifyOTP.mutateAsync({ identifier: identifierTrimmed, otp, type: "login" });
       if (response.success) {
         track("login_success", {});
-        router.push(returnTo);
+        // Redirect is handled centrally in the auth hook (admin -> /admin, others -> /app).
+        return;
       } else {
         setError(response.message || "Invalid OTP");
         track("login_otp_invalid", {});
       }
     } catch (err) {
-      // For demo, redirect to app
-      router.push(returnTo);
+      // Let the auth hook handle redirects on success.
+      return;
     }
   };
 
@@ -82,7 +89,7 @@ function LoginPageContent() {
     setError(null);
 
     try {
-      const response = await sendOTP.mutateAsync({ phone, type: "login" });
+      const response = await sendOTP.mutateAsync({ identifier: identifierTrimmed, type: "login" });
       if (response.success) {
         setCountdown(response.retryAfter || 30);
         track("login_otp_resent", {});
@@ -121,7 +128,9 @@ function LoginPageContent() {
           <p className="text-body text-foreground-muted mt-2">
             {step === "phone"
               ? "Sign in to manage your subscription"
-              : `Enter the 6-digit code sent to +91 ${phone}`}
+              : isEmail
+                ? `Enter the 6-digit code sent to ${identifierTrimmed}`
+                : `Enter the 6-digit code sent to +91 ${identifierTrimmed}`}
           </p>
         </CardHeader>
 
@@ -136,22 +145,21 @@ function LoginPageContent() {
             <form onSubmit={handleSendOTP} className="space-y-4">
               <div>
                 <label className="block text-small font-medium text-foreground mb-1.5">
-                  Phone Number
+                  Phone or Email
                 </label>
-                <div className="flex">
-                  <span className="inline-flex items-center px-3 rounded-l-btn border border-r-0 border-border bg-surface-2 text-foreground-muted text-body">
-                    +91
-                  </span>
-                  <input
-                    type="tel"
-                    inputMode="numeric"
-                    maxLength={10}
-                    placeholder="Enter 10-digit number"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-                    className="flex-1 px-4 py-3 rounded-r-btn border border-border bg-surface text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-body"
-                  />
-                </div>
+                <input
+                  type="text"
+                  inputMode={isEmail ? "email" : "text"}
+                  placeholder="10-digit phone or work email"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  className="w-full px-4 py-3 rounded-btn border border-border bg-surface text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-body"
+                />
+                {isAshvaAdminEmail && (
+                  <p className="mt-2 text-caption text-foreground-muted">
+                    Admin sign-in will be verified via email OTP.
+                  </p>
+                )}
               </div>
 
               <Button
@@ -159,7 +167,7 @@ function LoginPageContent() {
                 className="w-full"
                 size="lg"
                 isLoading={sendOTP.isPending}
-                disabled={phone.length !== 10}
+                disabled={!isValidIdentifier}
               >
                 Send OTP
               </Button>
@@ -223,7 +231,7 @@ function LoginPageContent() {
                 className="w-full inline-flex items-center justify-center gap-2 text-small text-foreground-muted hover:text-foreground"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Change phone number
+                Change phone/email
               </button>
             </form>
           )}

@@ -83,7 +83,7 @@ export function TrustSection() {
                 Join 50,000+ families who trust Ashva Experts for their daily drinking water.
               </p>
               <Link href="/plans" className="inline-block mt-6">
-                <AnimatedButton variant="secondary" size="lg" className="bg-white text-primary hover:bg-white/90">
+                <AnimatedButton variant="ghost" size="lg" className="bg-white !text-primary hover:bg-white/90 shadow-lg">
                   View Our Plans
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </AnimatedButton>

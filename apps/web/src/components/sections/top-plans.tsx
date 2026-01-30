@@ -48,8 +48,12 @@ export function TopPlansSection() {
                 tiltMaxAngle={10}
               >
               {plan.badge && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge variant="accent">{plan.badge}</Badge>
+                <div className={`text-center py-2 text-small font-semibold rounded-t-card ${
+                  plan.badge === "Most Popular" 
+                    ? "bg-primary text-white" 
+                    : "bg-accent text-white"
+                }`}>
+                  {plan.badge}
                 </div>
               )}
 

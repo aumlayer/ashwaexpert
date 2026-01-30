@@ -156,7 +156,7 @@ export default function PaymentsPage() {
               </div>
               <div>
                 <p className="text-small text-foreground-muted">Member Since</p>
-                <p className="text-h4 font-heading font-bold text-foreground">
+                <div className="text-h4 font-heading font-bold text-foreground">
                   {subscriptionQuery.isLoading ? (
                     <Skeleton className="h-6 w-20" />
                   ) : subscriptionQuery.data?.startDate ? (
@@ -167,7 +167,7 @@ export default function PaymentsPage() {
                   ) : (
                     "—"
                   )}
-                </p>
+                </div>
               </div>
             </div>
           </CardContent>

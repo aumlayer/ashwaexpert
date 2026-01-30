@@ -55,7 +55,7 @@ export default function AdminLayout({
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
+      <div className="dark min-h-screen bg-[#0F172A] flex items-center justify-center">
         <div className="text-white/80 text-small">Loading...</div>
       </div>
     );
@@ -63,7 +63,7 @@ export default function AdminLayout({
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-6">
+      <div className="dark min-h-screen bg-[#0F172A] flex items-center justify-center p-6">
         <div className="w-full max-w-md bg-[#1E293B] border border-[#334155] rounded-xl p-6 text-white">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center">
@@ -98,7 +98,7 @@ export default function AdminLayout({
 
   if (user?.role !== "admin") {
     return (
-      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-6">
+      <div className="dark min-h-screen bg-[#0F172A] flex items-center justify-center p-6">
         <div className="w-full max-w-md bg-[#1E293B] border border-[#334155] rounded-xl p-6 text-white">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center">
@@ -133,7 +133,7 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-[#0F172A]">
+    <div className="dark min-h-screen bg-[#0F172A]">
       {/* Mobile sidebar backdrop */}
       <AnimatePresence>
         {sidebarOpen && (

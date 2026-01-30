@@ -69,7 +69,7 @@ export function TiltCard({
         perspective: 1000,
       }}
       className={cn(
-        "relative rounded-card border border-border bg-surface shadow-sm overflow-hidden",
+        "relative rounded-card border border-border bg-surface shadow-sm overflow-visible",
         "transition-shadow duration-300 hover:shadow-xl",
         className
       )}

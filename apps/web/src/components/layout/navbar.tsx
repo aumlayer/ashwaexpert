@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Menu, X, Phone } from "lucide-react";
+import { Menu, X, Phone, User } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/utils/cn";
 import { siteConfig } from "@/data/content";
@@ -68,6 +68,13 @@ export function Navbar() {
               <Phone className="h-4 w-4" />
               <span>Call Us</span>
             </a>
+            <Link
+              href="/login"
+              className="flex items-center gap-2 text-small font-medium text-foreground-muted hover:text-primary transition-colors"
+            >
+              <User className="h-4 w-4" />
+              <span>Login</span>
+            </Link>
             <Button size="sm" onClick={() => router.push("/check-availability")}>
               Check Availability
             </Button>
@@ -101,6 +108,14 @@ export function Navbar() {
                   {link.label}
                 </Link>
               ))}
+              <Link
+                href="/login"
+                className="flex items-center gap-2 text-body font-medium text-foreground-muted hover:text-primary transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <User className="h-4 w-4" />
+                Login
+              </Link>
               <Button
                 className="mt-2"
                 onClick={() => {

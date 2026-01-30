@@ -43,7 +43,7 @@ export default function SignupPage() {
     track("signup_otp_requested", {});
 
     try {
-      const response = await sendOTP.mutateAsync({ phone: formData.phone, type: "signup" });
+      const response = await sendOTP.mutateAsync({ identifier: formData.phone, type: "signup" });
       if (response.success) {
         setStep("otp");
         setCountdown(response.retryAfter || 30);
@@ -92,7 +92,7 @@ export default function SignupPage() {
     setError(null);
 
     try {
-      const response = await sendOTP.mutateAsync({ phone: formData.phone, type: "signup" });
+      const response = await sendOTP.mutateAsync({ identifier: formData.phone, type: "signup" });
       if (response.success) {
         setCountdown(response.retryAfter || 30);
       }

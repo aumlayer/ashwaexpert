@@ -64,6 +64,11 @@ def _dev_static_otp() -> str:
     return os.getenv("DEV_STATIC_OTP", "123456")
 
 
+def _is_ashva_admin_email(identifier: str) -> bool:
+    ident = (identifier or "").strip().lower()
+    return "@" in ident and ident.endswith("@ashvaexperts.com")
+
+
 def _issue_tokens(db: Session, user: User, request: Request) -> TokenResponse:
     access_token = create_access_token(
         user_id=user.id,
@@ -136,6 +141,9 @@ async def register(req: RegisterRequest, request: Request, db: Session = Depends
     # Staff roles must be created by admin under a subscriber tenant
     if req.role in {"cms_user", "technician"}:
         raise HTTPException(status_code=403, detail="Use admin staff creation for this role")
+
+    if req.role == "admin" and not _is_ashva_admin_email(str(req.email)):
+        raise HTTPException(status_code=403, detail="Admin accounts must use an @ashvaexperts.com email")
 
     if req.phone:
         existing_stmt = select(User).where(or_(User.email == req.email, User.phone == req.phone))
@@ -257,10 +265,52 @@ async def otp_verify(req: OtpVerifyRequest, request: Request, db: Session = Depe
 
     if not user:
         # Best-effort lookup
-        user = db.execute(select(User).where(User.email == req.identifier)).scalar_one_or_none()
+        user = db.execute(
+            select(User).where(or_(User.email == req.identifier, User.phone == req.identifier))
+        ).scalar_one_or_none()
+
+    if not user and os.getenv("ENVIRONMENT", "local") == "local":
+        # Local-dev convenience: allow OTP login without seeded users.
+        now = _now()
+        identifier_norm = str(req.identifier).strip()
+
+        is_email = "@" in identifier_norm
+        if is_email:
+            email = identifier_norm
+            phone = None
+        else:
+            email = f"phone_{identifier_norm}@local.dev"
+            phone = identifier_norm
+
+        role = "admin" if _is_ashva_admin_email(email) else "subscriber"
+        random_password = str(uuid.uuid4())
+        user = User(
+            email=email,
+            phone=phone,
+            password_hash=hash_password(random_password),
+            is_active=True,
+            is_verified=True,
+            role=role,
+            subscriber_id=None,
+            can_assign_leads=True if role == "admin" else False,
+            can_manage_unassigned_leads=True if role == "admin" else False,
+            created_at=now,
+            updated_at=now,
+            last_login_at=None,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        if not otp.user_id:
+            otp.user_id = user.id
+            db.add(otp)
+            db.commit()
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    if user.role == "admin" and not _is_ashva_admin_email(str(user.email or "")):
+        raise HTTPException(status_code=403, detail="Admin accounts must use an @ashvaexperts.com email")
 
     if req.purpose == "registration":
         user.is_verified = True

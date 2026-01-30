@@ -338,10 +338,14 @@ export function useInventory(params?: { category?: string; status?: string }) {
     queryKey: ["admin", "inventory", params],
     queryFn: async () => {
       const token = getAuthToken();
-      return api.get<{ data: InventoryItem[]; total: number }>("/admin/inventory", {
-        headers: { Authorization: `Bearer ${token}` },
-        params,
-      });
+      try {
+        return await api.get<{ data: InventoryItem[]; total: number }>("/admin/inventory", {
+          headers: { Authorization: `Bearer ${token}` },
+          params,
+        });
+      } catch {
+        return { data: [], total: 0 };
+      }
     },
     staleTime: 60 * 1000,
   });

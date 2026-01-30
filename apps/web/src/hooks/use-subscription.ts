@@ -13,7 +13,7 @@ export function useSubscription() {
       const token = getAuthToken();
       if (!token) return null;
 
-      return api.get<Subscription>("/subscriptions/current", {
+      return api.get<Subscription>("/subscriptions/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
     },

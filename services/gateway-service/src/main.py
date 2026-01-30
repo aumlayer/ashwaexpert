@@ -1,7 +1,10 @@
 import json
 import logging
 import os
+import re
 import time
+import asyncio
+from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 from typing import Dict, Iterable
 from uuid import uuid4
@@ -14,6 +17,7 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.openapi.utils import get_openapi
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from redis import Redis
+from starlette.responses import StreamingResponse
 
 SERVICE_NAME = os.getenv("SERVICE_NAME", "gateway-service")
 SERVICE_VERSION = os.getenv("SERVICE_VERSION", "0.1.0")
@@ -56,9 +60,133 @@ app = FastAPI(
 )
 
 origins = [o.strip() for o in CORS_ORIGINS.split(",") if o.strip()] or ["*"]
+
+# NOTE: When allow_credentials=True, Access-Control-Allow-Origin cannot be '*'.
+# For local/dev, we reflect the request Origin when CORS_ORIGINS contains '*'.
+allow_origin_regex = None
+allow_origins = origins
+if "*" in origins:
+    allow_origins = []
+    # allow http(s)://localhost:<port> and http(s)://127.0.0.1:<port>
+    allow_origin_regex = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+
+
+def _apply_cors_headers(response: Response, request: Request) -> Response:
+    origin = request.headers.get("origin")
+    if not origin:
+        return response
+
+    # Match the same logic as the configured CORSMiddleware.
+    allowed = False
+    if allow_origin_regex:
+        try:
+            allowed = re.match(allow_origin_regex, origin) is not None
+        except Exception:
+            allowed = False
+    else:
+        allowed = origin in allow_origins
+
+    if not allowed:
+        return response
+
+    acrh = request.headers.get("access-control-request-headers")
+    response.headers.setdefault("Vary", "Origin")
+    response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers.setdefault(
+        "Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    )
+    response.headers.setdefault(
+        "Access-Control-Allow-Headers",
+        acrh or "Authorization, Content-Type, Idempotency-Key",
+    )
+    response.headers.setdefault("Access-Control-Max-Age", "600")
+    return response
+
+
+def _cors_json(request: Request, status_code: int, content: dict) -> Response:
+    return _apply_cors_headers(JSONResponse(status_code=status_code, content=content), request)
+
+
+def _publish_event(event: dict) -> None:
+    r = _get_redis()
+    if not r:
+        return
+    try:
+        r.publish("ashva:events", json.dumps(event))
+    except Exception:
+        # Best-effort only
+        return
+
+
+@app.get("/api/v1/events/stream")
+async def events_stream(request: Request) -> StreamingResponse:
+    """Server-Sent Events stream backed by Redis PubSub (Phase B).
+
+    Auth is enforced by the gateway middleware (bearer token required).
+    """
+
+    async def _iter_events() -> AsyncIterator[bytes]:
+        # Minimal SSE framing. We use a keep-alive comment every ~15s.
+        pubsub = None
+        r = _get_redis()
+        if not r:
+            # If Redis isn't configured, keep connection alive but send no events.
+            while True:
+                if await request.is_disconnected():
+                    return
+                yield b": keep-alive\n\n"
+                await asyncio.sleep(15)
+
+        try:
+            pubsub = r.pubsub(ignore_subscribe_messages=True)
+            pubsub.subscribe("ashva:events")
+
+            # Initial hello
+            yield b"event: ready\ndata: {}\n\n"
+
+            last_ping = time.time()
+            while True:
+                if await request.is_disconnected():
+                    return
+
+                message = None
+                try:
+                    message = await asyncio.to_thread(pubsub.get_message, timeout=1.0)
+                except Exception:
+                    message = None
+
+                if message and message.get("type") == "message":
+                    data = message.get("data")
+                    if isinstance(data, str):
+                        payload = data
+                    else:
+                        payload = json.dumps(data)
+                    yield f"data: {payload}\n\n".encode("utf-8")
+
+                # keep-alive ping
+                if time.time() - last_ping > 15:
+                    yield b": keep-alive\n\n"
+                    last_ping = time.time()
+        finally:
+            try:
+                if pubsub is not None:
+                    pubsub.close()
+            except Exception:
+                pass
+
+    headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+    }
+    # CORS: EventSource/fetch streaming needs Origin allowed; middleware already sets.
+    return StreamingResponse(_iter_events(), media_type="text/event-stream", headers=headers)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if "*" in origins else origins,
+    allow_origins=allow_origins,
+    allow_origin_regex=allow_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -233,6 +361,12 @@ async def metrics_and_logging(request: Request, call_next):
     request.state.correlation_id = correlation_id
     response = None
     try:
+        # Always allow preflight requests without auth so browsers can proceed.
+        if request.method.upper() == "OPTIONS":
+            response = Response(status_code=204)
+            response.headers["X-Correlation-ID"] = correlation_id
+            return _apply_cors_headers(response, request)
+
         # Rate limiting for auth endpoints (Phase 2 hardening)
         if request.url.path.startswith("/api/v1/auth/") and request.method.upper() == "POST":
             body = await request.body()
@@ -245,26 +379,41 @@ async def metrics_and_logging(request: Request, call_next):
             if request.url.path.endswith("/register"):
                 identifier = payload.get("email") or payload.get("phone") or ip
                 if not _rate_limit(key=f"auth_register:{identifier}", limit=5, window_seconds=3600):
-                    return JSONResponse(status_code=429, content={"detail": "Too many requests"})
+                    return _apply_cors_headers(
+                        JSONResponse(status_code=429, content={"detail": "Too many requests"}),
+                        request,
+                    )
             elif request.url.path.endswith("/otp/request"):
                 identifier = payload.get("identifier") or ip
                 if not _rate_limit(key=f"auth_otp_request:{identifier}", limit=3, window_seconds=900):
-                    return JSONResponse(status_code=429, content={"detail": "Too many requests"})
+                    return _apply_cors_headers(
+                        JSONResponse(status_code=429, content={"detail": "Too many requests"}),
+                        request,
+                    )
             elif request.url.path.endswith("/login"):
                 identifier = payload.get("email") or ip
                 if not _rate_limit(key=f"auth_login:{identifier}", limit=5, window_seconds=900):
-                    return JSONResponse(status_code=429, content={"detail": "Too many requests"})
+                    return _apply_cors_headers(
+                        JSONResponse(status_code=429, content={"detail": "Too many requests"}),
+                        request,
+                    )
 
         # AuthN/Z for protected endpoints
         if request.url.path.startswith("/api/v1/") and not _is_public_request(request):
             auth = request.headers.get("authorization", "")
             if not auth.lower().startswith("bearer "):
-                return JSONResponse(status_code=401, content={"detail": "Missing bearer token"})
+                return _apply_cors_headers(
+                    JSONResponse(status_code=401, content={"detail": "Missing bearer token"}),
+                    request,
+                )
             token = auth.split(" ", 1)[1].strip()
 
             claims = await _validate_token_via_auth(token, correlation_id)
             if not claims:
-                return JSONResponse(status_code=401, content={"detail": "Invalid token"})
+                return _apply_cors_headers(
+                    JSONResponse(status_code=401, content={"detail": "Invalid token"}),
+                    request,
+                )
 
             request.state.user_id = claims.get("user_id")
             request.state.user_role = claims.get("role")
@@ -276,14 +425,20 @@ async def metrics_and_logging(request: Request, call_next):
 
             role = str(request.state.user_role or "")
             if request.url.path.startswith("/api/v1/subscribers/") and role not in {"subscriber", "admin"}:
-                return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                return _apply_cors_headers(
+                    JSONResponse(status_code=403, content={"detail": "Forbidden"}),
+                    request,
+                )
 
             # Lead management (Phase 3): admin + cms_user + technician (read all; write restrictions enforced in lead-service)
             if request.url.path.startswith("/api/v1/leads") and not (
                 request.method.upper() == "POST" and request.url.path.rstrip("/") == "/api/v1/leads"
             ):
                 if role not in {"admin", "cms_user", "technician"}:
-                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                    return _apply_cors_headers(
+                        JSONResponse(status_code=403, content={"detail": "Forbidden"}),
+                        request,
+                    )
 
                 # Assignment validation: admin must never be assigned leads
                 if request.method.upper() == "PATCH" and request.url.path.endswith("/assign"):
@@ -298,146 +453,151 @@ async def metrics_and_logging(request: Request, call_next):
                             user_id=str(assigned_to), correlation_id=correlation_id
                         )
                         if assignee_role == "admin":
-                            return JSONResponse(
-                                status_code=400,
-                                content={"detail": "Admin cannot be assigned to leads"},
+                            return _cors_json(
+                                request,
+                                400,
+                                {"detail": "Admin cannot be assigned to leads"},
                             )
 
             # Content management (Phase 3): only admin + cms_user
             if request.url.path.startswith("/api/v1/content/") and role not in {"admin", "cms_user"}:
-                return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                return _cors_json(request, 403, {"detail": "Forbidden"})
 
             # Coupon/discount/referral management
             if request.url.path.startswith("/api/v1/coupons/"):
                 # Never expose internal coupon endpoints through the gateway
                 if request.url.path.startswith("/api/v1/coupons/internal/"):
-                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                    return _cors_json(request, 403, {"detail": "Forbidden"})
 
                 # Admin-only endpoints
                 if request.url.path in {"/api/v1/coupons", "/api/v1/coupons/"}:
                     if role != "admin":
-                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                        return _cors_json(request, 403, {"detail": "Forbidden"})
                 if request.url.path.startswith("/api/v1/coupons/referrals/program"):
                     if role != "admin":
-                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                        return _cors_json(request, 403, {"detail": "Forbidden"})
 
                 # Subscriber referral code generation
                 if request.url.path.startswith("/api/v1/coupons/referrals/generate"):
                     if role != "subscriber":
-                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                        return _cors_json(request, 403, {"detail": "Forbidden"})
 
             # Subscription management
             if request.url.path.startswith("/api/v1/subscriptions/"):
                 # Never expose internal subscription endpoints through the gateway
                 if request.url.path.startswith("/api/v1/subscriptions/internal/"):
-                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                    return _cors_json(request, 403, {"detail": "Forbidden"})
                 # Plan change apply: admin only
                 if request.url.path.endswith("/plan-change/apply"):
                     if role != "admin":
-                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                        return _cors_json(request, 403, {"detail": "Forbidden"})
                 # Plan change request, cancellation: subscriber (own) or admin
                 elif request.url.path.endswith("/plan-change") or request.url.path.endswith("/cancel"):
                     if role not in {"subscriber", "admin"}:
-                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                        return _cors_json(request, 403, {"detail": "Forbidden"})
                 # Events history: subscriber (own) or admin
                 elif request.url.path.endswith("/events"):
                     if role not in {"subscriber", "admin"}:
-                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                        return _cors_json(request, 403, {"detail": "Forbidden"})
                 # Other subscription endpoints: subscriber or admin
                 elif role not in {"subscriber", "admin"}:
-                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                    return _cors_json(request, 403, {"detail": "Forbidden"})
 
             # Payment management
             if request.url.path.startswith("/api/v1/payments/"):
                 # Never expose internal payment endpoints through the gateway
                 if request.url.path.startswith("/api/v1/payments/internal/"):
-                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                    return _cors_json(request, 403, {"detail": "Forbidden"})
                 # Admin-only
                 if request.url.path.startswith("/api/v1/payments/admin/") and role != "admin":
-                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                    return _cors_json(request, 403, {"detail": "Forbidden"})
                 # Subscriber-only
                 if request.url.path.startswith("/api/v1/payments/me/") and role != "subscriber":
-                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                    return _cors_json(request, 403, {"detail": "Forbidden"})
                 # Payment intent gateway create/retry (Wave 3): subscriber/admin only
                 if request.url.path.startswith("/api/v1/payments/intents/") and role not in {"subscriber", "admin"}:
-                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                    return _cors_json(request, 403, {"detail": "Forbidden"})
 
             # Billing management
             if request.url.path.startswith("/api/v1/billing/"):
                 # Never expose internal billing endpoints through the gateway
                 if request.url.path.startswith("/api/v1/billing/internal/"):
-                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                    return _cors_json(request, 403, {"detail": "Forbidden"})
                 # Admin-only
                 if request.url.path.startswith("/api/v1/billing/admin/") and role != "admin":
-                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                    return _cors_json(request, 403, {"detail": "Forbidden"})
                 # Subscriber-only
                 if request.url.path.startswith("/api/v1/billing/me/") and role != "subscriber":
-                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                    return _cors_json(request, 403, {"detail": "Forbidden"})
                 # Subscriber credits endpoint (Wave 3)
                 if request.url.path.startswith("/api/v1/billing/credits/me") and role != "subscriber":
-                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                    return _cors_json(request, 403, {"detail": "Forbidden"})
 
             # Plan management (public read is allowed in _is_public_request)
             if request.url.path.startswith("/api/v1/plans") and request.method.upper() != "GET":
                 if role != "admin":
-                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                    return _cors_json(request, 403, {"detail": "Forbidden"})
 
             # Ticket management (Phase 6)
             if request.url.path.startswith("/api/v1/tickets"):
                 # Never expose internal ticket endpoints through the gateway
                 if request.url.path.startswith("/api/v1/tickets/internal/"):
-                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                    return _cors_json(request, 403, {"detail": "Forbidden"})
                 # Public: POST /api/v1/tickets (subscriber creates ticket)
                 if request.method.upper() == "POST" and request.url.path.rstrip("/") == "/api/v1/tickets":
                     if role not in {"subscriber", "admin"}:
-                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                        return _cors_json(request, 403, {"detail": "Forbidden"})
                 # Admin-only: /api/v1/tickets/admin
                 elif request.url.path.startswith("/api/v1/tickets/admin"):
                     if role != "admin":
-                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                        return _cors_json(request, 403, {"detail": "Forbidden"})
                 # Subscriber, technician, admin: GET /api/v1/tickets/{id}, PATCH /api/v1/tickets/{id}
                 # Subscriber: GET /api/v1/tickets/me
                 elif request.url.path.startswith("/api/v1/tickets/me"):
                     if role != "subscriber":
-                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                        return _cors_json(request, 403, {"detail": "Forbidden"})
                 # Other ticket endpoints: subscriber, technician, admin (enforced in ticket-service)
                 elif role not in {"subscriber", "technician", "admin"}:
-                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                    return _cors_json(request, 403, {"detail": "Forbidden"})
 
             # Assignment management (Phase 6)
             if request.url.path.startswith("/api/v1/assignments"):
                 # Never expose internal assignment endpoints through the gateway
                 if request.url.path.startswith("/api/v1/assignments/internal/"):
-                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                    return _cors_json(request, 403, {"detail": "Forbidden"})
                 # Admin-only: POST /api/v1/assignments, GET /api/v1/assignments/admin
                 if request.url.path.startswith("/api/v1/assignments/admin") or (
                     request.method.upper() == "POST" and request.url.path.rstrip("/") == "/api/v1/assignments"
                 ):
                     if role != "admin":
-                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                        return _cors_json(request, 403, {"detail": "Forbidden"})
                 # Technician-only: GET /api/v1/assignments/me, POST /api/v1/assignments/{id}/accept, POST /api/v1/assignments/{id}/reject
                 elif request.url.path.startswith("/api/v1/assignments/me") or request.url.path.endswith(
                     ("/accept", "/reject")
                 ):
                     if role != "technician":
-                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                        return _cors_json(request, 403, {"detail": "Forbidden"})
                 # Admin: unassign
                 elif request.url.path.endswith("/unassign"):
                     if role != "admin":
-                        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                        return _cors_json(request, 403, {"detail": "Forbidden"})
 
             # Media management (Phase 6: ticket photos)
             if request.url.path.startswith("/api/v1/media"):
                 # Never expose internal media endpoints through the gateway
                 if request.url.path.startswith("/api/v1/media/internal/"):
-                    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                    return _cors_json(request, 403, {"detail": "Forbidden"})
                 # Ticket photos: subscriber (own tickets), technician (assigned tickets), admin (any)
                 # Other media: admin only (for now)
                 # Authorization is enforced in media-service based on owner_type
 
         response = await call_next(request)
         response.headers["X-Correlation-ID"] = correlation_id
-        return response
+        return _apply_cors_headers(response, request)
+    except Exception:
+        response = JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
+        response.headers["X-Correlation-ID"] = correlation_id
+        return _apply_cors_headers(response, request)
     finally:
         duration = time.time() - start
         status_code = response.status_code if response else 500
@@ -454,8 +614,26 @@ async def metrics_and_logging(request: Request, call_next):
 
 
 def _filter_headers(headers: Iterable[tuple[str, str]]) -> Dict[str, str]:
-    excluded = {"connection", "content-length", "transfer-encoding"}
-    return {k: v for k, v in headers if k.lower() not in excluded}
+    # Strip hop-by-hop headers and upstream CORS headers. The gateway should be
+    # the single source of truth for CORS.
+    excluded = {
+        "connection",
+        "content-length",
+        "transfer-encoding",
+        "access-control-allow-origin",
+        "access-control-allow-methods",
+        "access-control-allow-headers",
+        "access-control-allow-credentials",
+        "access-control-expose-headers",
+        "access-control-max-age",
+    }
+    filtered: Dict[str, str] = {}
+    for k, v in headers:
+        key = k.strip().lower()
+        if key in excluded or key.startswith("access-control-"):
+            continue
+        filtered[k] = v
+    return filtered
 
 
 @app.api_route("/api/v1/{service}", methods=list(ALLOWED_METHODS))
@@ -497,6 +675,29 @@ async def proxy_root(service: str, request: Request) -> Response:
             content=body,
             headers=headers,
         )
+
+    if (
+        upstream.status_code in {200, 201, 204}
+        and service in {"tickets", "assignments"}
+        and request.method.upper() in {"POST", "PATCH", "PUT", "DELETE"}
+    ):
+        event: dict = {
+            "type": f"{service}.changed",
+            "service": service,
+            "method": request.method.upper(),
+            "path": request.url.path,
+            "status_code": upstream.status_code,
+            "correlation_id": getattr(request.state, "correlation_id", ""),
+            "user_id": str(getattr(request.state, "user_id", "") or ""),
+            "user_role": str(getattr(request.state, "user_role", "") or ""),
+            "ts": datetime.now(timezone.utc).isoformat(),
+        }
+        try:
+            if (upstream.headers.get("content-type") or "").startswith("application/json"):
+                event["data"] = upstream.json()
+        except Exception:
+            pass
+        _publish_event(event)
 
     return Response(
         content=upstream.content,
@@ -541,6 +742,29 @@ async def proxy(service: str, path: str, request: Request) -> Response:
             content=body,
             headers=headers,
         )
+
+    if (
+        upstream.status_code in {200, 201, 204}
+        and service in {"tickets", "assignments"}
+        and request.method.upper() in {"POST", "PATCH", "PUT", "DELETE"}
+    ):
+        event: dict = {
+            "type": f"{service}.changed",
+            "service": service,
+            "method": request.method.upper(),
+            "path": request.url.path,
+            "status_code": upstream.status_code,
+            "correlation_id": getattr(request.state, "correlation_id", ""),
+            "user_id": str(getattr(request.state, "user_id", "") or ""),
+            "user_role": str(getattr(request.state, "user_role", "") or ""),
+            "ts": datetime.now(timezone.utc).isoformat(),
+        }
+        try:
+            if (upstream.headers.get("content-type") or "").startswith("application/json"):
+                event["data"] = upstream.json()
+        except Exception:
+            pass
+        _publish_event(event)
 
     return Response(
         content=upstream.content,

@@ -15,6 +15,25 @@ import type {
   AuthSession,
 } from "@/types/auth";
 
+type BackendOtpRequestResponse = {
+  message: string;
+  expires_in_seconds: number;
+};
+
+type BackendTokenUser = {
+  id: string;
+  email?: string;
+  phone?: string;
+  role: string;
+};
+
+type BackendTokenResponse = {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  user: BackendTokenUser;
+};
+
 const AUTH_TOKEN_KEY = "auth_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
 
@@ -44,7 +63,21 @@ export function clearAuthTokens(): void {
 export function useSendOTP() {
   return useMutation({
     mutationFn: async (data: SendOTPRequest) => {
-      return api.post<SendOTPResponse>("/auth/otp/send", data);
+      const purpose = data.type === "signup" ? "registration" : "login";
+      const identifier = data.identifier;
+
+      const res = await api.post<BackendOtpRequestResponse>("/auth/otp/request", {
+        identifier,
+        purpose,
+      });
+
+      const mapped: SendOTPResponse = {
+        success: true,
+        message: res.message,
+        expiresIn: res.expires_in_seconds,
+      };
+
+      return mapped;
     },
   });
 }
@@ -56,7 +89,38 @@ export function useVerifyOTP() {
 
   return useMutation({
     mutationFn: async (data: VerifyOTPRequest) => {
-      return api.post<VerifyOTPResponse>("/auth/otp/verify", data);
+      const purpose = data.type === "signup" ? "registration" : "login";
+      const identifier = data.identifier;
+
+      const res = await api.post<BackendTokenResponse>("/auth/otp/verify", {
+        identifier,
+        otp_code: data.otp,
+        purpose,
+      });
+
+      const session: AuthSession = {
+        user: {
+          id: res.user.id,
+          phone: res.user.phone || identifier,
+          email: res.user.email,
+          name: undefined,
+          role: (res.user.role as User["role"]) || "subscriber",
+          isVerified: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        accessToken: res.access_token,
+        refreshToken: res.refresh_token,
+        expiresAt: new Date(Date.now() + res.expires_in * 1000).toISOString(),
+      };
+
+      const mapped: VerifyOTPResponse = {
+        success: true,
+        session,
+        isNewUser: data.type === "signup",
+      };
+
+      return mapped;
     },
     onSuccess: (response) => {
       if (response.success && response.session) {
@@ -66,7 +130,8 @@ export function useVerifyOTP() {
         if (response.isNewUser) {
           router.push("/signup/complete");
         } else {
-          router.push("/app");
+          const role = response.session.user.role;
+          router.push(role === "admin" ? "/admin" : role === "technician" ? "/tech" : "/app");
         }
       }
     },
@@ -99,10 +164,27 @@ export function useCurrentUser() {
     queryFn: async () => {
       const token = getAuthToken();
       if (!token) return null;
-      
-      return api.get<User>("/auth/me", {
+
+      // Backend /api/v1/auth/me returns: { id, email, phone, role, is_active, is_verified, ... }
+      const me = await api.get<{ id: string; email?: string; phone?: string; role: string; is_verified?: boolean }>(
+        "/auth/me",
+        {
         headers: { Authorization: `Bearer ${token}` },
-      });
+        }
+      );
+
+      const mapped: User = {
+        id: me.id,
+        phone: me.phone || "",
+        email: me.email,
+        name: undefined,
+        role: (me.role as User["role"]) || "subscriber",
+        isVerified: Boolean(me.is_verified),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      return mapped;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: false,

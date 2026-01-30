@@ -9,28 +9,34 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+from sqlalchemy import select
 
 from app.routers.auth import router as auth_router
+from app.deps import get_session_factory
+from app.models import User
+from app.security import hash_password
 
 SERVICE_NAME = os.getenv("SERVICE_NAME", "auth-service")
 SERVICE_VERSION = os.getenv("SERVICE_VERSION", "0.1.0")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "local")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
+ENABLE_CORS = os.getenv("ENABLE_CORS", "false").lower() in ("1", "true", "yes")
 
 logging.basicConfig(level=LOG_LEVEL, format="%(message)s")
 logger = logging.getLogger(SERVICE_NAME)
 
 app = FastAPI(title=SERVICE_NAME, version=SERVICE_VERSION)
 
-origins = [o.strip() for o in CORS_ORIGINS.split(",") if o.strip()] or ["*"]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"] if "*" in origins else origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if ENABLE_CORS:
+    origins = [o.strip() for o in CORS_ORIGINS.split(",") if o.strip()] or ["*"]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"] if "*" in origins else origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 REQUEST_COUNT = Counter(
     "http_requests_total",
@@ -48,6 +54,70 @@ REQUEST_LATENCY = Histogram(
 
 
 app.include_router(auth_router)
+
+
+def _seed_demo_users_if_needed() -> None:
+    if ENVIRONMENT != "local":
+        return
+
+    if os.getenv("SEED_DEMO_USERS", "true").lower() not in {"1", "true", "yes"}:
+        return
+
+    session_factory = get_session_factory()
+    now = datetime.now(timezone.utc)
+
+    demo_users = [
+        {
+            "email": "admin@example.com",
+            "role": "admin",
+            "can_assign_leads": True,
+            "can_manage_unassigned_leads": True,
+        },
+        {
+            "email": "subscriber@example.com",
+            "role": "subscriber",
+            "can_assign_leads": False,
+            "can_manage_unassigned_leads": False,
+        },
+        {
+            "email": "technician@example.com",
+            "role": "technician",
+            "can_assign_leads": False,
+            "can_manage_unassigned_leads": False,
+        },
+    ]
+
+    db = session_factory()
+    try:
+        for u in demo_users:
+            existing = db.execute(select(User).where(User.email == u["email"])).scalar_one_or_none()
+            if existing:
+                continue
+
+            user = User(
+                email=u["email"],
+                phone=None,
+                password_hash=hash_password("password123"),
+                is_active=True,
+                is_verified=True,
+                role=u["role"],
+                subscriber_id=None,
+                can_assign_leads=bool(u["can_assign_leads"]),
+                can_manage_unassigned_leads=bool(u["can_manage_unassigned_leads"]),
+                created_at=now,
+                updated_at=now,
+                last_login_at=None,
+            )
+            db.add(user)
+
+        db.commit()
+    finally:
+        db.close()
+
+
+@app.on_event("startup")
+def _on_startup() -> None:
+    _seed_demo_users_if_needed()
 
 
 def _get_correlation_id(request: Request) -> str:

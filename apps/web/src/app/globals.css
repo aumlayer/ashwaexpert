@@ -51,7 +51,26 @@
   --accent: #2DD4BF;
 }
 
+.dark .text-gray-300 {
+  color: var(--text) !important;
+}
+
+.dark .text-gray-400,
+.dark .text-gray-500 {
+  color: var(--text-2) !important;
+}
+
+.dark .placeholder\:text-gray-500::placeholder,
+.dark .placeholder\:text-gray-400::placeholder {
+  color: var(--text-2) !important;
+}
+
 @layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
   body {
     @apply bg-background text-foreground font-body antialiased;
   }
@@ -65,4 +84,21 @@
   .text-balance {
     text-wrap: balance;
   }
+}
+
+@layer components {
+  .container-custom {
+    @apply mx-auto max-w-container px-4 sm:px-6 lg:px-8;
+  }
+  
+  /* Ensure all inline-flex buttons don't wrap text */
+  .btn-nowrap {
+    @apply whitespace-nowrap;
+  }
+}
+
+/* Global fix: All link/button elements with inline-flex should not wrap */
+a.inline-flex,
+button.inline-flex {
+  white-space: nowrap;
 }

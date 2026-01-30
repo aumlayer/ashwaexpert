@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { cityData } from "../page";
 import { CityPlansClient } from "./CityPlansClient";
 import { api } from "@/utils/api";
@@ -57,8 +58,10 @@ export default async function CityPlansPage({ params }: { params: { slug: string
 
   return (
     <>
-      <script
+      <Script
+        id="city-plans-jsonld"
         type="application/ld+json"
+        strategy="beforeInteractive"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <CityPlansClient cityName={city.name} citySlug={params.slug} plans={plans} />

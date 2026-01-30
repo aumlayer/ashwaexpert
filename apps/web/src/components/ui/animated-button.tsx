@@ -48,8 +48,8 @@ export function AnimatedButton({
     };
 
     const variants = {
-      primary: "bg-primary text-white hover:bg-primary/90 shadow-lg shadow-primary/25",
-      secondary: "bg-accent text-white hover:bg-accent/90 shadow-lg shadow-accent/25",
+      primary: "bg-primary !text-white hover:bg-primary/90 shadow-lg shadow-primary/25",
+      secondary: "bg-accent !text-white hover:bg-accent/90 shadow-lg shadow-accent/25",
       outline: "border-2 border-primary text-primary bg-transparent hover:bg-primary/5",
       ghost: "text-foreground hover:bg-surface-2",
     };
@@ -67,7 +67,7 @@ export function AnimatedButton({
       whileTap={{ scale: 0.98 }}
       transition={{ type: "spring", stiffness: 400, damping: 17 }}
       className={cn(
-        "relative inline-flex items-center justify-center font-semibold overflow-hidden",
+        "relative inline-flex items-center justify-center font-semibold overflow-hidden whitespace-nowrap",
         "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2",
         "disabled:opacity-50 disabled:pointer-events-none",
         "transition-colors duration-200",

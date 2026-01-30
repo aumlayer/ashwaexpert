@@ -138,7 +138,7 @@ export default function AdminDashboard() {
             Dashboard
           </motion.h1>
           <motion.p
-            className="text-body text-gray-400"
+            className="text-body text-slate-300"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
@@ -176,7 +176,7 @@ export default function AdminDashboard() {
           >
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-small text-gray-400">{stat.name}</p>
+                <p className="text-small text-slate-300">{stat.name}</p>
                 {statsQuery.isLoading ? (
                   <Skeleton className="h-8 w-28 mt-2 bg-white/10" />
                 ) : (
@@ -202,7 +202,7 @@ export default function AdminDashboard() {
                   >
                     {stat.change || " "}
                   </span>
-                  <span className="text-caption text-gray-500">vs last month</span>
+                  <span className="text-caption text-slate-400">vs last month</span>
                 </div>
               </div>
               <motion.div

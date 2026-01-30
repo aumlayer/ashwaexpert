@@ -123,7 +123,7 @@ function PlansPageContent() {
   };
 
   return (
-    <section className="py-18 lg:py-24 bg-surface-2 overflow-hidden">
+    <section className="py-18 lg:py-24 bg-surface-2">
       <div className="mx-auto max-w-container px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <ScrollReveal animation="fadeUp">
@@ -270,7 +270,7 @@ function PlansPageContent() {
         </motion.div>
 
         {/* Plans Grid */}
-        <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" staggerDelay={0.1}>
+        <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-6" staggerDelay={0.1}>
           {filteredPlans.map((plan, index) => (
             (() => {
               const pricing = getPricingForPlan(plan);
@@ -288,7 +288,7 @@ function PlansPageContent() {
                 glareEnabled={plan.badge === "Most Popular"}
               >
                 <Card
-                  className={`relative flex flex-col h-full ${
+                  className={`relative flex flex-col h-full overflow-visible ${
                     plan.badge === "Most Popular"
                       ? "border-primary shadow-lg"
                       : ""
@@ -296,13 +296,14 @@ function PlansPageContent() {
                   onClick={() => handlePlanClick(plan.id)}
                 >
               {plan.badge && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge variant={plan.badge === "Most Popular" ? "accent" : "success"}>
+                  <div className={`text-center py-2 text-small font-semibold rounded-t-card -mx-px -mt-px ${
+                    plan.badge === "Most Popular" 
+                      ? "bg-primary text-white" 
+                      : "bg-accent text-white"
+                  }`}>
                     {plan.badge}
-                  </Badge>
-                </div>
-              )}
-
+                  </div>
+                )}
               <CardHeader className="text-center pb-2">
                 <CardTitle className="text-h4">{plan.name}</CardTitle>
                 <div className="mt-3 flex items-baseline justify-center gap-1">

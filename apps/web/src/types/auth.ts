@@ -5,7 +5,7 @@ export interface User {
   phone: string;
   email?: string;
   name?: string;
-  role: "customer" | "admin" | "editor" | "technician";
+  role: "admin" | "subscriber" | "technician" | "cms_user";
   isVerified: boolean;
   createdAt: string;
   updatedAt: string;
@@ -20,7 +20,7 @@ export interface AuthSession {
 
 // Request/Response types
 export interface SendOTPRequest {
-  phone: string;
+  identifier: string;
   type: "login" | "signup" | "reset";
 }
 
@@ -32,7 +32,7 @@ export interface SendOTPResponse {
 }
 
 export interface VerifyOTPRequest {
-  phone: string;
+  identifier: string;
   otp: string;
   type: "login" | "signup";
 }

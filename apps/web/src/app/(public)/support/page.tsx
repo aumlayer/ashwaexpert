@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Script from "next/script";
 import { MessageCircle, Phone, Mail, HelpCircle, ArrowRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui";
-import { SupportFaqs } from "@/components/support/support-faqs";
+import { AccordionFaq } from "@/components/support/accordion-faq";
 import { WhatsAppLink } from "@/components/support/whatsapp-link";
 import { api } from "@/utils/api";
 import type { FAQ } from "@/types/api";
@@ -52,8 +53,10 @@ export default async function SupportPage() {
 
   return (
     <div>
-      <script
+      <Script
+        id="support-faq-jsonld"
         type="application/ld+json"
+        strategy="beforeInteractive"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
       {/* Hero */}
@@ -182,7 +185,7 @@ export default async function SupportPage() {
             </p>
           </div>
 
-          <SupportFaqs faqs={faqsForUi} />
+          <AccordionFaq faqs={faqsForUi} />
 
           <div className="mt-12 text-center">
             <Link

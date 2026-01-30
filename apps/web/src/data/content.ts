@@ -75,6 +75,114 @@ export const howItWorksSteps = [
   },
 ];
 
+export const howItWorksDetailed = [
+  {
+    step: 1,
+    title: "Check Your Area",
+    shortTitle: "Check",
+    description: "Enter your pincode to instantly verify service availability in your area.",
+    details: [
+      "Instant pincode verification",
+      "See available purifier models",
+      "Get estimated installation time",
+    ],
+    icon: "map-pin",
+  },
+  {
+    step: 2,
+    title: "Choose Your Purifier",
+    shortTitle: "Choose",
+    description: "Select from RO, UV, Copper, or Alkaline purifiers based on your water quality and needs.",
+    details: [
+      "Take our 2-minute water quality quiz",
+      "Compare features side-by-side",
+      "Get personalized recommendations",
+    ],
+    icon: "list-checks",
+  },
+  {
+    step: 3,
+    title: "Select Your Plan",
+    shortTitle: "Plan",
+    description: "Pick monthly or prepaid billing. Prepaid plans offer up to 15% savings.",
+    details: [
+      "Flexible monthly payments",
+      "Save up to 15% with prepaid",
+      "No hidden charges, ever",
+    ],
+    icon: "credit-card",
+  },
+  {
+    step: 4,
+    title: "Schedule Installation",
+    shortTitle: "Schedule",
+    description: "Choose your preferred date and time slot. We'll be there within 48 hours.",
+    details: [
+      "Pick your convenient slot",
+      "Same-day slots available",
+      "SMS & WhatsApp reminders",
+    ],
+    icon: "calendar",
+  },
+  {
+    step: 5,
+    title: "Professional Setup",
+    shortTitle: "Install",
+    description: "Our certified technicians handle everything - from setup to testing.",
+    details: [
+      "Background-verified technicians",
+      "Complete installation in 30-45 mins",
+      "Water quality testing included",
+    ],
+    icon: "wrench",
+  },
+  {
+    step: 6,
+    title: "Enjoy Pure Water",
+    shortTitle: "Enjoy",
+    description: "Start enjoying pure, healthy water. We handle all maintenance automatically.",
+    details: [
+      "Track usage via our app",
+      "Automatic service reminders",
+      "24/7 customer support",
+    ],
+    icon: "droplets",
+  },
+];
+
+export const subscriptionBenefits = [
+  {
+    icon: "shield-check",
+    title: "Zero Upfront Cost",
+    description: "No need to spend ₹15,000-35,000 on buying a purifier. Just pay monthly.",
+  },
+  {
+    icon: "wrench",
+    title: "Free Maintenance Forever",
+    description: "Regular servicing, repairs, and part replacements - all included.",
+  },
+  {
+    icon: "filter",
+    title: "Free Filter Replacements",
+    description: "All filters and membranes replaced on schedule at no extra cost.",
+  },
+  {
+    icon: "clock",
+    title: "Same-Day Service",
+    description: "Report issues before 2 PM, get technician visit the same day.",
+  },
+  {
+    icon: "refresh-cw",
+    title: "Free Upgrades",
+    description: "Upgrade to a better purifier anytime. We'll swap it out for free.",
+  },
+  {
+    icon: "x-circle",
+    title: "Cancel Anytime",
+    description: "No long-term commitment. Cancel after the lock-in period ends.",
+  },
+];
+
 export const plans = [
   {
     id: "basic-ro",
@@ -437,6 +545,86 @@ export const faqs = [
       "We accept all major payment methods: UPI, credit/debit cards, net banking, and wallets. You can also opt for auto-pay via UPI mandate for hassle-free monthly payments. Prepaid plans (3/6/12 months) offer additional savings.",
     category: "billing",
     order: 8,
+  },
+  {
+    id: "9",
+    question: "Is there any security deposit required?",
+    answer:
+      "No security deposit is required for any of our plans. You only pay the monthly subscription fee. This makes it completely risk-free to try our service.",
+    category: "billing",
+    order: 9,
+  },
+  {
+    id: "10",
+    question: "What is the minimum commitment period?",
+    answer:
+      "The minimum lock-in period is 6 months for all plans. After this period, you can cancel anytime with just 7 days notice. During the lock-in period, early cancellation charges may apply.",
+    category: "billing",
+    order: 10,
+  },
+  {
+    id: "11",
+    question: "Do I need to provide water connection for installation?",
+    answer:
+      "Yes, you need a water inlet connection (tap or pipe) and a power socket near the installation location. Our technician will assess the site and may suggest the best placement for optimal performance.",
+    category: "installation",
+    order: 11,
+  },
+  {
+    id: "12",
+    question: "How often do you replace filters?",
+    answer:
+      "Filter replacement frequency depends on usage and water quality. Typically, sediment filters are replaced every 3-4 months, carbon filters every 6 months, and RO membranes annually. Our technicians monitor and replace them proactively.",
+    category: "service",
+    order: 12,
+  },
+  {
+    id: "13",
+    question: "What water sources do your purifiers support?",
+    answer:
+      "Our purifiers work with municipal corporation water, borewell water, and tanker water. For very high TDS water (above 2000 ppm), we recommend our Advanced RO+UV or Premium Copper+ plans for best results.",
+    category: "general",
+    order: 13,
+  },
+  {
+    id: "14",
+    question: "Is the water from RO purifiers safe for infants?",
+    answer:
+      "Yes, absolutely! RO purified water is safe for infants and the entire family. Our purifiers include mineral retention technology to ensure essential minerals are retained while removing harmful contaminants.",
+    category: "general",
+    order: 14,
+  },
+  {
+    id: "15",
+    question: "What is copper-infused water and its benefits?",
+    answer:
+      "Copper-infused water contains trace amounts of copper, an essential mineral. It may help boost immunity, aid digestion, support joint health, and provide antioxidant benefits. Our Premium Copper+ plan uses a specialized copper infusion cartridge.",
+    category: "general",
+    order: 15,
+  },
+  {
+    id: "16",
+    question: "How do I cancel my subscription?",
+    answer:
+      "You can cancel by calling our support number, raising a request on WhatsApp, or through your customer portal. We require 7 days notice. Our team will schedule a pickup of the purifier at a convenient time.",
+    category: "billing",
+    order: 16,
+  },
+  {
+    id: "17",
+    question: "What happens if I miss a monthly payment?",
+    answer:
+      "We send payment reminders 3 days before and on the due date. If payment is missed, you have a 7-day grace period. After this, service may be paused until payment is received. No late fees are charged during the grace period.",
+    category: "billing",
+    order: 17,
+  },
+  {
+    id: "18",
+    question: "Do you provide service on weekends?",
+    answer:
+      "Yes, we provide installation and repair services on Saturdays. For emergencies, limited support is available on Sundays as well. You can choose weekend slots during booking.",
+    category: "service",
+    order: 18,
   },
 ];
 

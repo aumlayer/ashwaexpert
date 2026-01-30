@@ -22,6 +22,19 @@ export interface PaymentMethod {
   lastFour?: string;
 }
 
+type InvoiceItem = {
+  id: string;
+  invoice_number: string;
+  status: "issued" | "paid" | "cancelled";
+  total_amount: number;
+  created_at: string;
+};
+
+type InvoiceListResponse = {
+  items: InvoiceItem[];
+  total: number;
+};
+
 // Get payment history
 export function usePayments() {
   return useQuery({
@@ -30,8 +43,22 @@ export function usePayments() {
       const token = getAuthToken();
       if (!token) return [];
 
-      return api.get<Payment[]>("/payments", {
+      const res = await api.get<InvoiceListResponse>("/billing/me/invoices", {
         headers: { Authorization: `Bearer ${token}` },
+        params: { limit: 50, offset: 0 },
+      });
+
+      return (res.items || []).map((inv): Payment => {
+        const status: Payment["status"] =
+          inv.status === "paid" ? "paid" : inv.status === "issued" ? "pending" : "failed";
+        return {
+          id: inv.id,
+          date: inv.created_at,
+          amount: inv.total_amount,
+          status,
+          method: "—",
+          invoiceId: inv.invoice_number,
+        };
       });
     },
     staleTime: 5 * 60 * 1000,
@@ -46,9 +73,8 @@ export function usePaymentMethods() {
       const token = getAuthToken();
       if (!token) return [];
 
-      return api.get<PaymentMethod[]>("/payments/methods", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // Payment method management is not implemented in the current backend API.
+      return [];
     },
     staleTime: 10 * 60 * 1000,
   });
@@ -60,10 +86,7 @@ export function useRetryPayment() {
 
   return useMutation({
     mutationFn: async (paymentId: string) => {
-      const token = getAuthToken();
-      return api.post<{ paymentUrl: string }>(`/payments/${paymentId}/retry`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      return { paymentUrl: "" };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payments"] });
@@ -77,10 +100,8 @@ export function useAddPaymentMethod() {
 
   return useMutation({
     mutationFn: async (data: { type: string; token: string }) => {
-      const token = getAuthToken();
-      return api.post<PaymentMethod>("/payments/methods", data, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      void data;
+      throw new Error("Payment methods are not available yet");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payment-methods"] });
@@ -94,10 +115,8 @@ export function useSetDefaultPaymentMethod() {
 
   return useMutation({
     mutationFn: async (methodId: string) => {
-      const token = getAuthToken();
-      return api.post(`/payments/methods/${methodId}/default`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      void methodId;
+      throw new Error("Payment methods are not available yet");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payment-methods"] });
@@ -109,15 +128,8 @@ export function useSetDefaultPaymentMethod() {
 export function useDownloadInvoice() {
   return useMutation({
     mutationFn: async (invoiceId: string) => {
-      const token = getAuthToken();
-      const response = await api.get<{ url: string }>(`/payments/invoices/${invoiceId}/download`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      // Open invoice URL in new tab
-      if (response.url) {
-        window.open(response.url, "_blank");
-      }
-      return response;
+      void invoiceId;
+      throw new Error("Invoice download is not available yet");
     },
   });
 }
